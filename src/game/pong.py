@@ -7,6 +7,8 @@ os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 import math
 from dataclasses import dataclass
 import pygame
+import csv
+from pathlib import Path
 
 
 WIDTH, HEIGHT = 900, 600
@@ -21,6 +23,39 @@ CENTER_LINE_GAP = 18
 BG_COLOR = (16, 18, 22)
 FG_COLOR = (245, 246, 248)
 
+# Data collection setup
+DATA_DIR = Path("data")
+DATA_DIR.mkdir(exist_ok=True)
+run_number = 0
+frame_id = 0
+
+def get_player_input(keys) -> tuple[str, str]:
+    left_input = "I"
+    if keys[pygame.K_q]:
+        left_input = "U"
+    elif keys[pygame.K_a]:
+        left_input = "D"
+        
+    right_input = "I" 
+    if keys[pygame.K_UP]:
+        right_input = "U"
+    elif keys[pygame.K_DOWN]:
+        right_input = "D"
+        
+    return left_input, right_input
+
+def write_frame_data(csv_writer, frame_id, left_input, right_input):
+    csv_writer.writerow([
+        frame_id,
+        left_input,
+        right_input,
+        state.left_paddle_y,
+        state.right_paddle_y,
+        state.ball_pos.x,
+        state.ball_pos.y,
+        state.ball_angle,
+        BALL_SPEED
+    ])
 
 @dataclass
 class GameState:
@@ -66,6 +101,17 @@ def main() -> None:
     clock = pygame.time.Clock()
     font = pygame.font.SysFont(None, 56)
 
+    # Data collection setup
+    run_number = 0
+    while (DATA_DIR / f"run_{run_number:04d}.csv").exists():
+        run_number += 1
+        
+    csv_file = open(DATA_DIR / f"run_{run_number:04d}.csv", "w", newline="")
+    csv_writer = csv.writer(csv_file)
+    csv_writer.writerow(["frame_id", "left_input", "right_input", "left_paddle_y", "right_paddle_y", 
+                        "ball_x", "ball_y", "ball_angle", "ball_speed"])
+    frame_id = 0
+
     _reset_ball(direction=1)
 
     running = True
@@ -77,15 +123,19 @@ def main() -> None:
             if e.type == pygame.QUIT:
                 running = False
 
-        # Input
+         # Input
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_q]:
+        left_input, right_input = get_player_input(keys)
+        
+        # Use the input for movement
+        if left_input == "U":
             state.left_paddle_y -= PADDLE_SPEED * dt
-        if keys[pygame.K_a]:
+        elif left_input == "D":
             state.left_paddle_y += PADDLE_SPEED * dt
-        if keys[pygame.K_UP]:
+            
+        if right_input == "U":
             state.right_paddle_y -= PADDLE_SPEED * dt
-        if keys[pygame.K_DOWN]:
+        elif right_input == "D":
             state.right_paddle_y += PADDLE_SPEED * dt
 
         state.left_paddle_y = _clamp(state.left_paddle_y, 0, HEIGHT - PADDLE_H)
@@ -167,8 +217,13 @@ def main() -> None:
         screen.blit(ls, (WIDTH * 0.25 - ls.get_width() / 2, 24))
         screen.blit(rs, (WIDTH * 0.75 - rs.get_width() / 2, 24))
 
+        # Write frame data
+        write_frame_data(csv_writer, frame_id, left_input, right_input)
+        frame_id += 1
+
         pygame.display.flip()
 
+    csv_file.close()
     pygame.quit()
 
 
