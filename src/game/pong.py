@@ -16,8 +16,11 @@ FPS = 60
 
 PADDLE_W, PADDLE_H = 12, 100
 PADDLE_SPEED = 420  # px/s
+
 BALL_SIZE = 12
-BALL_SPEED = 360  # constant for now
+BALL_SPEED = 360 
+ball_speed_multiplier = 1.0 
+
 CENTER_LINE_GAP = 18
 
 BG_COLOR = (16, 18, 22)
@@ -84,9 +87,12 @@ state = GameState(
 
 def _reset_ball(direction: int = 1) -> None:
     """Center the ball and launch horizontally. direction: +1 to right, -1 to left."""
+    global ball_speed_multiplier
+    ball_speed_multiplier = 1.0
     state.ball_pos.update(WIDTH / 2, HEIGHT / 2)
     state.ball_vel.update(BALL_SPEED * direction, 0)
     state.update_angle()
+
 
 
 def _clamp(v: float, lo: float, hi: float) -> float:
@@ -95,6 +101,8 @@ def _clamp(v: float, lo: float, hi: float) -> float:
 
 # Run Loop
 def main() -> None:
+    global ball_speed_multiplier
+
     pygame.init()
     pygame.display.set_caption("Pong (Q/A vs ↑/↓)")
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -163,12 +171,13 @@ def main() -> None:
             norm = _clamp(hit_rel / (PADDLE_H / 2), -1.0, 1.0)  # -1 top, +1 bottom
             angle = norm * (math.pi / 3)  # spread up to ±60°
 
-            # Rebuild velocity at constant speed, heading to the right
-            state.ball_vel.from_polar((BALL_SPEED, math.degrees(angle)))
+            # Rebuild velocity at current speed, heading to the right
+            state.ball_vel.from_polar((BALL_SPEED * ball_speed_multiplier, math.degrees(angle)))
             state.ball_vel.x = abs(state.ball_vel.x)  # ensure right
 
             # Nudge out of the paddle to avoid sticking
             state.ball_pos.x = left_rect.right
+            ball_speed_multiplier *= 1.1
 
         # Right paddle collision
         if ball_rect.colliderect(right_rect) and state.ball_vel.x > 0:
@@ -176,10 +185,11 @@ def main() -> None:
             norm = _clamp(hit_rel / (PADDLE_H / 2), -1.0, 1.0)
             angle = norm * (math.pi / 3)
 
-            state.ball_vel.from_polar((BALL_SPEED, math.degrees(angle)))
+            state.ball_vel.from_polar((BALL_SPEED * ball_speed_multiplier, math.degrees(angle)))
             state.ball_vel.x = -abs(state.ball_vel.x)  # ensure left
 
             state.ball_pos.x = right_rect.left - BALL_SIZE
+            ball_speed_multiplier *= 1.1 
 
         # Scoring
         if state.ball_pos.x + BALL_SIZE < 0:
@@ -189,9 +199,8 @@ def main() -> None:
             state.left_score += 1
             _reset_ball(direction=-1)
 
-        # Keep exact speed magnitude (float drift)
         if state.ball_vel.length_squared() != 0:
-            state.ball_vel.scale_to_length(BALL_SPEED)
+            state.ball_vel.scale_to_length(BALL_SPEED * ball_speed_multiplier)
 
         state.update_angle()
 
