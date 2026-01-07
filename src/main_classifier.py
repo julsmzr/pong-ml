@@ -16,11 +16,12 @@ if __name__ == "__main__":
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42, shuffle=True)
 
     wf = Weighted_Forest(4, 3, distance_function=euclidean_distance)
-    accuracys = wf.fit(X_train,y_train,100)
+    accuracys = wf.fit(X_train,y_train,1000)
     epochs = np.arange(accuracys.shape[0])
 
     correct = 0
     predictions = wf.predict(X_test)
+    print(predictions, y_test)
     for idx in range(X_test.shape[0]):
         if predictions[idx] == y_test[idx]:
             correct += 1
