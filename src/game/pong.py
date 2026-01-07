@@ -47,14 +47,15 @@ def get_player_input(keys) -> tuple[str, str]:
         
     return left_input, right_input
 
-def get_best_player_input(paddle_y, ball_pos_y):
-    input = "I"
-    if paddle_y + PADDLE_H / 2 > ball_pos_y:
-        input = "U"
-    elif paddle_y + PADDLE_H / 2 < ball_pos_y:
-        input = "D"
-    
-    return input
+def get_best_player_input(paddle_y, ball_pos_y, threshold=10):
+    paddle_center = paddle_y + PADDLE_H / 2
+    diff = paddle_center - ball_pos_y
+
+    if diff > threshold:
+        return "U"
+    elif diff < -threshold:
+        return "D"
+    return "I"
 
 def write_frame_data(csv_writer, frame_id, left_input, right_input):
     csv_writer.writerow([
@@ -110,7 +111,7 @@ def _clamp(v: float, lo: float, hi: float) -> float:
 
 # Run Loop
 def main(
-        singe_player: bool = False
+        single_player: bool = False
     ) -> None:
     global ball_speed_multiplier
 
@@ -120,12 +121,13 @@ def main(
     clock = pygame.time.Clock()
     font = pygame.font.SysFont(None, 56)
 
-    # Data collection setup
+    # Data collection setup - name by enemy type
+    prefix = "hvpc" if single_player else "hvh"
     run_number = 0
-    while (DATA_DIR / f"run_{run_number:04d}.csv").exists():
+    while (DATA_DIR / f"{prefix}_{run_number:04d}.csv").exists():
         run_number += 1
-        
-    csv_file = open(DATA_DIR / f"run_{run_number:04d}.csv", "w", newline="")
+
+    csv_file = open(DATA_DIR / f"{prefix}_{run_number:04d}.csv", "w", newline="")
     csv_writer = csv.writer(csv_file)
     csv_writer.writerow(["frame_id", "left_input", "right_input", "left_paddle_y", "right_paddle_y", 
                         "ball_x", "ball_y", "ball_angle", "ball_speed"])
@@ -145,7 +147,7 @@ def main(
          # Input
         keys = pygame.key.get_pressed()
         left_input, right_input = get_player_input(keys)
-        if singe_player:
+        if single_player:
             right_input = get_best_player_input(state.right_paddle_y, state.ball_pos.y)
         
         # Use the input for movement
