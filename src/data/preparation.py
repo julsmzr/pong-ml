@@ -11,5 +11,5 @@ def min_max_scale(array: np.ndarray):
     scaler = MinMaxScaler()
     return scaler.fit_transform(array)
 
-def undersample(X, y):
-    return RandomUnderSampler().fit_resample(X,y)
+def undersample(X, y, random_seed):
+    return RandomUnderSampler(random_state=random_seed).fit_resample(X,y)
