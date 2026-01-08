@@ -47,6 +47,15 @@ def get_player_input(keys) -> tuple[str, str]:
         
     return left_input, right_input
 
+def get_best_player_input(paddle_y, ball_pos_y):
+    input = "I"
+    if paddle_y + PADDLE_H / 2 > ball_pos_y:
+        input = "U"
+    elif paddle_y + PADDLE_H / 2 < ball_pos_y:
+        input = "D"
+    
+    return input
+
 def write_frame_data(csv_writer, frame_id, left_input, right_input):
     csv_writer.writerow([
         frame_id,
@@ -100,7 +109,9 @@ def _clamp(v: float, lo: float, hi: float) -> float:
 
 
 # Run Loop
-def main() -> None:
+def main(
+        singe_player: bool = False
+    ) -> None:
     global ball_speed_multiplier
 
     pygame.init()
@@ -134,6 +145,8 @@ def main() -> None:
          # Input
         keys = pygame.key.get_pressed()
         left_input, right_input = get_player_input(keys)
+        if singe_player:
+            right_input = get_best_player_input(state.right_paddle_y, state.ball_pos.y)
         
         # Use the input for movement
         if left_input == "U":
