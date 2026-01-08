@@ -7,6 +7,8 @@ os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 import math
 from dataclasses import dataclass
 import pygame
+import csv
+from pathlib import Path
 
 
 WIDTH, HEIGHT = 900, 600
@@ -14,13 +16,59 @@ FPS = 60
 
 PADDLE_W, PADDLE_H = 12, 100
 PADDLE_SPEED = 420  # px/s
+
 BALL_SIZE = 12
-BALL_SPEED = 360  # constant for now
+BALL_SPEED = 360 
+ball_speed_multiplier = 1.0 
+
 CENTER_LINE_GAP = 18
 
 BG_COLOR = (16, 18, 22)
 FG_COLOR = (245, 246, 248)
 
+# Data collection setup
+DATA_DIR = Path("data")
+DATA_DIR.mkdir(exist_ok=True)
+run_number = 0
+frame_id = 0
+
+def get_player_input(keys) -> tuple[str, str]:
+    left_input = "I"
+    if keys[pygame.K_q]:
+        left_input = "U"
+    elif keys[pygame.K_a]:
+        left_input = "D"
+        
+    right_input = "I" 
+    if keys[pygame.K_UP]:
+        right_input = "U"
+    elif keys[pygame.K_DOWN]:
+        right_input = "D"
+        
+    return left_input, right_input
+
+def get_best_player_input(paddle_y, ball_pos_y, threshold=10):
+    paddle_center = paddle_y + PADDLE_H / 2
+    diff = paddle_center - ball_pos_y
+
+    if diff > threshold:
+        return "U"
+    elif diff < -threshold:
+        return "D"
+    return "I"
+
+def write_frame_data(csv_writer, frame_id, left_input, right_input):
+    csv_writer.writerow([
+        frame_id,
+        left_input,
+        right_input,
+        state.left_paddle_y,
+        state.right_paddle_y,
+        state.ball_pos.x,
+        state.ball_pos.y,
+        state.ball_angle,
+        BALL_SPEED
+    ])
 
 @dataclass
 class GameState:
@@ -49,9 +97,12 @@ state = GameState(
 
 def _reset_ball(direction: int = 1) -> None:
     """Center the ball and launch horizontally. direction: +1 to right, -1 to left."""
+    global ball_speed_multiplier
+    ball_speed_multiplier = 1.0
     state.ball_pos.update(WIDTH / 2, HEIGHT / 2)
     state.ball_vel.update(BALL_SPEED * direction, 0)
     state.update_angle()
+
 
 
 def _clamp(v: float, lo: float, hi: float) -> float:
@@ -59,12 +110,28 @@ def _clamp(v: float, lo: float, hi: float) -> float:
 
 
 # Run Loop
-def main() -> None:
+def main(
+        single_player: bool = False
+    ) -> None:
+    global ball_speed_multiplier
+
     pygame.init()
     pygame.display.set_caption("Pong (Q/A vs ↑/↓)")
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     clock = pygame.time.Clock()
     font = pygame.font.SysFont(None, 56)
+
+    # Data collection setup - name by enemy type
+    prefix = "hvpc" if single_player else "hvh"
+    run_number = 0
+    while (DATA_DIR / f"{prefix}_{run_number:04d}.csv").exists():
+        run_number += 1
+
+    csv_file = open(DATA_DIR / f"{prefix}_{run_number:04d}.csv", "w", newline="")
+    csv_writer = csv.writer(csv_file)
+    csv_writer.writerow(["frame_id", "left_input", "right_input", "left_paddle_y", "right_paddle_y", 
+                        "ball_x", "ball_y", "ball_angle", "ball_speed"])
+    frame_id = 0
 
     _reset_ball(direction=1)
 
@@ -77,15 +144,21 @@ def main() -> None:
             if e.type == pygame.QUIT:
                 running = False
 
-        # Input
+         # Input
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_q]:
+        left_input, right_input = get_player_input(keys)
+        if single_player:
+            right_input = get_best_player_input(state.right_paddle_y, state.ball_pos.y)
+        
+        # Use the input for movement
+        if left_input == "U":
             state.left_paddle_y -= PADDLE_SPEED * dt
-        if keys[pygame.K_a]:
+        elif left_input == "D":
             state.left_paddle_y += PADDLE_SPEED * dt
-        if keys[pygame.K_UP]:
+            
+        if right_input == "U":
             state.right_paddle_y -= PADDLE_SPEED * dt
-        if keys[pygame.K_DOWN]:
+        elif right_input == "D":
             state.right_paddle_y += PADDLE_SPEED * dt
 
         state.left_paddle_y = _clamp(state.left_paddle_y, 0, HEIGHT - PADDLE_H)
@@ -113,12 +186,13 @@ def main() -> None:
             norm = _clamp(hit_rel / (PADDLE_H / 2), -1.0, 1.0)  # -1 top, +1 bottom
             angle = norm * (math.pi / 3)  # spread up to ±60°
 
-            # Rebuild velocity at constant speed, heading to the right
-            state.ball_vel.from_polar((BALL_SPEED, math.degrees(angle)))
+            # Rebuild velocity at current speed, heading to the right
+            state.ball_vel.from_polar((BALL_SPEED * ball_speed_multiplier, math.degrees(angle)))
             state.ball_vel.x = abs(state.ball_vel.x)  # ensure right
 
             # Nudge out of the paddle to avoid sticking
             state.ball_pos.x = left_rect.right
+            ball_speed_multiplier *= 1.1
 
         # Right paddle collision
         if ball_rect.colliderect(right_rect) and state.ball_vel.x > 0:
@@ -126,10 +200,11 @@ def main() -> None:
             norm = _clamp(hit_rel / (PADDLE_H / 2), -1.0, 1.0)
             angle = norm * (math.pi / 3)
 
-            state.ball_vel.from_polar((BALL_SPEED, math.degrees(angle)))
+            state.ball_vel.from_polar((BALL_SPEED * ball_speed_multiplier, math.degrees(angle)))
             state.ball_vel.x = -abs(state.ball_vel.x)  # ensure left
 
             state.ball_pos.x = right_rect.left - BALL_SIZE
+            ball_speed_multiplier *= 1.1 
 
         # Scoring
         if state.ball_pos.x + BALL_SIZE < 0:
@@ -139,9 +214,8 @@ def main() -> None:
             state.left_score += 1
             _reset_ball(direction=-1)
 
-        # Keep exact speed magnitude (float drift)
         if state.ball_vel.length_squared() != 0:
-            state.ball_vel.scale_to_length(BALL_SPEED)
+            state.ball_vel.scale_to_length(BALL_SPEED * ball_speed_multiplier)
 
         state.update_angle()
 
@@ -167,8 +241,13 @@ def main() -> None:
         screen.blit(ls, (WIDTH * 0.25 - ls.get_width() / 2, 24))
         screen.blit(rs, (WIDTH * 0.75 - rs.get_width() / 2, 24))
 
+        # Write frame data
+        write_frame_data(csv_writer, frame_id, left_input, right_input)
+        frame_id += 1
+
         pygame.display.flip()
 
+    csv_file.close()
     pygame.quit()
 
 
