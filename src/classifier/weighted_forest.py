@@ -1,7 +1,8 @@
 import numpy as np
 import random
+from classifier.base_classifier import BaseClassifier
 
-class Weighted_Forest:
+class WeightedForest(BaseClassifier):
     class Cell:
         class Gate:
             def __init__(self, used_features, distance_function, learning_rate=0.01, boundery=2.5, initializer_low=-10, initializer_high=10):
@@ -84,8 +85,8 @@ class Weighted_Forest:
             np.random.shuffle(split)
             gate_vector_size = random.randint(1,self.num_features-1)
 
-            self.gate = Weighted_Forest.Cell.Gate(used_features=split[:gate_vector_size], distance_function=distance_function, initializer_low=initializer_low, initializer_high=initializer_high)
-            self.decision = Weighted_Forest.Cell.Decision(used_features=split[gate_vector_size:], num_classes=self.num_classes, distance_function=distance_function, initializer_low=initializer_low, initializer_high=initializer_high)
+            self.gate = WeightedForest.Cell.Gate(used_features=split[:gate_vector_size], distance_function=distance_function, initializer_low=initializer_low, initializer_high=initializer_high)
+            self.decision = WeightedForest.Cell.Decision(used_features=split[gate_vector_size:], num_classes=self.num_classes, distance_function=distance_function, initializer_low=initializer_low, initializer_high=initializer_high)
 
             self.made_decision = False ## Was once in the forward paths a decision taken
 
@@ -131,7 +132,7 @@ class Weighted_Forest:
         def get_gate_used_features(self):
             return self.gate.used_features.copy()
 
-    def __init__(self, num_features, num_classes, distance_function, learning_decay=0.9, accuracy_goal=0.8):
+    def __init__(self, num_features, num_classes, distance_function, learning_decay=0.9, accuracy_goal=0.8, initializer_low=0, initializer_high=10):
         if num_features < 2 or num_classes <2:
             raise Exception("Classifier needs at least two features and two classes.")
 
@@ -140,6 +141,8 @@ class Weighted_Forest:
         self.distance_function = distance_function
         self.learning_decay = learning_decay
         self.accuracy_goal = accuracy_goal
+        self.initializer_low = initializer_low
+        self.initializer_high = initializer_high
         self.cells = []
         for i in range(4):
             self.add_cell()
@@ -226,4 +229,4 @@ class Weighted_Forest:
         return predictions
 
     def add_cell(self):
-        self.cells.append(Weighted_Forest.Cell(self.num_features, self.num_classes, distance_function=self.distance_function, learning_decay=self.learning_decay, initializer_low=0, initializer_high=10))
+        self.cells.append(WeightedForest.Cell(self.num_features, self.num_classes, distance_function=self.distance_function, learning_decay=self.learning_decay, initializer_low=self.initializer_low, initializer_high=self.initializer_high))
