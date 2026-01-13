@@ -10,6 +10,8 @@ import pygame
 import csv
 from pathlib import Path
 
+from src.models.model_loader import PongAIPlayer
+
 
 WIDTH, HEIGHT = 900, 600
 FPS = 60
@@ -32,32 +34,41 @@ DATA_DIR.mkdir(exist_ok=True)
 run_number = 0
 frame_id = 0
 
-def get_player_input(keys) -> tuple[str, str]:
-    left_input = "I"
+def get_left_input(keys) -> str:
+    """Get left player input from keyboard (Q/A keys)."""
     if keys[pygame.K_q]:
-        left_input = "U"
+        return "U"
     elif keys[pygame.K_a]:
-        left_input = "D"
-        
-    right_input = "I" 
-    if keys[pygame.K_UP]:
-        right_input = "U"
-    elif keys[pygame.K_DOWN]:
-        right_input = "D"
-        
-    return left_input, right_input
+        return "D"
+    return "I"
 
-def get_best_player_input(paddle_y, ball_pos_y, threshold=10):
+def get_right_input(keys) -> str:
+    """Get right player input from keyboard (arrow keys)."""
+    if keys[pygame.K_UP]:
+        return "U"
+    elif keys[pygame.K_DOWN]:
+        return "D"
+    return "I"
+
+def get_perfect_ai_input(paddle_y: float, ball_pos_y: float, threshold: float = 10.0) -> str:
+    """Perfect AI that tracks ball position."""
     paddle_center = paddle_y + PADDLE_H / 2
     diff = paddle_center - ball_pos_y
-
     if diff > threshold:
         return "U"
     elif diff < -threshold:
         return "D"
     return "I"
 
-def write_frame_data(csv_writer, frame_id, left_input, right_input):
+def get_model_ai_input(ai_player: PongAIPlayer, paddle_y: float, ball_x: float, ball_y: float, ball_angle: float, ball_speed: float) -> str:
+    """Get input from trained ML model."""
+    try:
+        return ai_player.predict(paddle_y, ball_x, ball_y, ball_angle, ball_speed)
+    except Exception as e:
+        print(f"AI prediction error: {e}")
+        return "I"
+
+def write_frame_data(csv_writer, frame_id: int, left_input: str, right_input: str) -> None:
     csv_writer.writerow([
         frame_id,
         left_input,
@@ -110,19 +121,23 @@ def _clamp(v: float, lo: float, hi: float) -> float:
 
 
 # Run Loop
-def main(
-        single_player: bool = False
-    ) -> None:
+def main(right_ai: PongAIPlayer | None = None, right_mode: str = "human") -> None:
+    """Run Pong game. right_mode: 'human', 'pc', 'dt', 'ht', 'ct'."""
     global ball_speed_multiplier
 
     pygame.init()
-    pygame.display.set_caption("Pong (Q/A vs ↑/↓)")
+
+    # Set caption based on right player type
+    mode_labels = {"human": "↑/↓", "pc": "PC", "dt": "DT", "ht": "HT", "ct": "CT"}
+    right_label = mode_labels.get(right_mode, "AI")
+    pygame.display.set_caption(f"Pong (Q/A vs {right_label})")
+
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     clock = pygame.time.Clock()
     font = pygame.font.SysFont(None, 56)
 
-    # Data collection setup - name by enemy type
-    prefix = "hvpc" if single_player else "hvh"
+    # Data collection setup
+    prefix = f"hv{right_mode}"
     run_number = 0
     while (DATA_DIR / f"{prefix}_{run_number:04d}.csv").exists():
         run_number += 1
@@ -146,9 +161,15 @@ def main(
 
          # Input
         keys = pygame.key.get_pressed()
-        left_input, right_input = get_player_input(keys)
-        if single_player:
-            right_input = get_best_player_input(state.right_paddle_y, state.ball_pos.y)
+        left_input = get_left_input(keys)
+
+        # Right input based on mode
+        if right_ai:
+            right_input = get_model_ai_input(right_ai, state.right_paddle_y, state.ball_pos.x, state.ball_pos.y, state.ball_angle, BALL_SPEED)
+        elif right_mode == "pc":
+            right_input = get_perfect_ai_input(state.right_paddle_y, state.ball_pos.y)
+        else:
+            right_input = get_right_input(keys)
         
         # Use the input for movement
         if left_input == "U":
