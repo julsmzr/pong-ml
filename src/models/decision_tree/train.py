@@ -86,7 +86,7 @@ def train_decision_tree(
 
     # Save model
     print(f"\n[5/5] Saving model...")
-    models_dir = Path(__file__).parent.parent.parent.parent / "models"
+    models_dir = "models"
     models_dir.mkdir(exist_ok=True)
 
     model_path = models_dir / "decision_tree_pong.pkl"
@@ -128,7 +128,7 @@ def train_decision_tree(
     }
 
 
-def visualize_results(clf: DecisionTreeClassifier, feature_importance: pd.DataFrame, save_path: Path | None = None) -> None:
+def visualize_results(clf: DecisionTreeClassifier, feature_importance: pd.DataFrame, save_path: str | None = None) -> None:
     """Create visualization of feature importance."""
     fig, ax = plt.subplots(figsize=(10, 6))
 
@@ -160,7 +160,7 @@ def main() -> None:
     visualize_results(
         clf,
         metrics['feature_importance'],
-        save_path=Path(__file__).parent.parent.parent.parent / "models" / "dt_feature_importance.png"
+        save_path="models/dt_feature_importance.png"
     )
 
 

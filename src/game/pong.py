@@ -20,8 +20,7 @@ PADDLE_W, PADDLE_H = 12, 100
 PADDLE_SPEED = 420  # px/s
 
 BALL_SIZE = 12
-BALL_SPEED = 360 
-ball_speed_multiplier = 1.0 
+BALL_SPEED = 360
 
 CENTER_LINE_GAP = 18
 
@@ -68,7 +67,7 @@ def get_model_ai_input(ai_player: PongAIPlayer, paddle_y: float, ball_x: float, 
         print(f"AI prediction error: {e}")
         return "I"
 
-def write_frame_data(csv_writer, frame_id: int, left_input: str, right_input: str) -> None:
+def write_frame_data(csv_writer, frame_id: int, left_input: str, right_input: str, ball_speed: float) -> None:
     csv_writer.writerow([
         frame_id,
         left_input,
@@ -78,7 +77,7 @@ def write_frame_data(csv_writer, frame_id: int, left_input: str, right_input: st
         state.ball_pos.x,
         state.ball_pos.y,
         state.ball_angle,
-        BALL_SPEED
+        ball_speed
     ])
 
 @dataclass
@@ -88,6 +87,7 @@ class GameState:
     ball_pos: pygame.Vector2
     ball_vel: pygame.Vector2
     ball_angle: float  # radians, computed from velocity
+    ball_speed_multiplier: float
     left_score: int
     right_score: int
 
@@ -101,6 +101,7 @@ state = GameState(
     ball_pos=pygame.Vector2(WIDTH / 2, HEIGHT / 2),
     ball_vel=pygame.Vector2(BALL_SPEED, 0),  # starts to the right
     ball_angle=0.0,
+    ball_speed_multiplier=1.0,
     left_score=0,
     right_score=0,
 )
@@ -108,8 +109,7 @@ state = GameState(
 
 def _reset_ball(direction: int = 1) -> None:
     """Center the ball and launch horizontally. direction: +1 to right, -1 to left."""
-    global ball_speed_multiplier
-    ball_speed_multiplier = 1.0
+    state.ball_speed_multiplier = 1.0
     state.ball_pos.update(WIDTH / 2, HEIGHT / 2)
     state.ball_vel.update(BALL_SPEED * direction, 0)
     state.update_angle()
@@ -123,8 +123,6 @@ def _clamp(v: float, lo: float, hi: float) -> float:
 # Run Loop
 def main(right_ai: PongAIPlayer | None = None, right_mode: str = "human") -> None:
     """Run Pong game. right_mode: 'human', 'pc', 'dt', 'ht', 'ct'."""
-    global ball_speed_multiplier
-
     pygame.init()
 
     # Set caption based on right player type
@@ -165,7 +163,7 @@ def main(right_ai: PongAIPlayer | None = None, right_mode: str = "human") -> Non
 
         # Right input based on mode
         if right_ai:
-            right_input = get_model_ai_input(right_ai, state.right_paddle_y, state.ball_pos.x, state.ball_pos.y, state.ball_angle, BALL_SPEED)
+            right_input = get_model_ai_input(right_ai, state.right_paddle_y, state.ball_pos.x, state.ball_pos.y, state.ball_angle, BALL_SPEED * state.ball_speed_multiplier)
         elif right_mode == "pc":
             right_input = get_perfect_ai_input(state.right_paddle_y, state.ball_pos.y)
         else:
@@ -203,29 +201,23 @@ def main(right_ai: PongAIPlayer | None = None, right_mode: str = "human") -> Non
 
         # Left paddle collision
         if ball_rect.colliderect(left_rect) and state.ball_vel.x < 0:
+            state.ball_speed_multiplier *= 1.1
             hit_rel = (state.ball_pos.y + BALL_SIZE / 2) - (left_rect.centery)
             norm = _clamp(hit_rel / (PADDLE_H / 2), -1.0, 1.0)  # -1 top, +1 bottom
             angle = norm * (math.pi / 3)  # spread up to ±60°
-
-            # Rebuild velocity at current speed, heading to the right
-            state.ball_vel.from_polar((BALL_SPEED * ball_speed_multiplier, math.degrees(angle)))
+            state.ball_vel.from_polar((BALL_SPEED * state.ball_speed_multiplier, math.degrees(angle)))
             state.ball_vel.x = abs(state.ball_vel.x)  # ensure right
-
-            # Nudge out of the paddle to avoid sticking
             state.ball_pos.x = left_rect.right
-            ball_speed_multiplier *= 1.1
 
         # Right paddle collision
         if ball_rect.colliderect(right_rect) and state.ball_vel.x > 0:
+            state.ball_speed_multiplier *= 1.1
             hit_rel = (state.ball_pos.y + BALL_SIZE / 2) - (right_rect.centery)
             norm = _clamp(hit_rel / (PADDLE_H / 2), -1.0, 1.0)
             angle = norm * (math.pi / 3)
-
-            state.ball_vel.from_polar((BALL_SPEED * ball_speed_multiplier, math.degrees(angle)))
+            state.ball_vel.from_polar((BALL_SPEED * state.ball_speed_multiplier, math.degrees(angle)))
             state.ball_vel.x = -abs(state.ball_vel.x)  # ensure left
-
-            state.ball_pos.x = right_rect.left - BALL_SIZE
-            ball_speed_multiplier *= 1.1 
+            state.ball_pos.x = right_rect.left - BALL_SIZE 
 
         # Scoring
         if state.ball_pos.x + BALL_SIZE < 0:
@@ -234,9 +226,6 @@ def main(right_ai: PongAIPlayer | None = None, right_mode: str = "human") -> Non
         elif state.ball_pos.x > WIDTH:
             state.left_score += 1
             _reset_ball(direction=-1)
-
-        if state.ball_vel.length_squared() != 0:
-            state.ball_vel.scale_to_length(BALL_SPEED * ball_speed_multiplier)
 
         state.update_angle()
 
@@ -263,7 +252,7 @@ def main(right_ai: PongAIPlayer | None = None, right_mode: str = "human") -> Non
         screen.blit(rs, (WIDTH * 0.75 - rs.get_width() / 2, 24))
 
         # Write frame data
-        write_frame_data(csv_writer, frame_id, left_input, right_input)
+        write_frame_data(csv_writer, frame_id, left_input, right_input, BALL_SPEED * state.ball_speed_multiplier)
         frame_id += 1
 
         pygame.display.flip()

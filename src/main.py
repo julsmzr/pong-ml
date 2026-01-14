@@ -1,5 +1,5 @@
-from game.pong import main as run_pong
-from models.model_loader import load_decision_tree_model
+from src.game.pong import main as run_pong
+from src.models.model_loader import load_decision_tree_model
 
 
 def main(mode: str = "human") -> None:
