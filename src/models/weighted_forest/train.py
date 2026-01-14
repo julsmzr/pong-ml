@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 
 from src.data.loader import load_training_data_class_balanced, TARGET_COL
-from src.classifier.weighted_forest import Weighted_Forest, euclidean_distance
+from models.weighted_forest.clf import Weighted_Forest, euclidean_distance
 
 
 def train_weighted_forest(

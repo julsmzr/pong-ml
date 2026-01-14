@@ -1,5 +1,5 @@
 from game.pong import main as run_interactive_pong
-from classifier.weighted_forest import Weighted_Forest
+from models.weighted_forest.clf import Weighted_Forest
 from lib.distance_functions import euclidean_distance
 import numpy as np
 from sklearn.datasets import load_iris
