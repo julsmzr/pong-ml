@@ -77,6 +77,53 @@ def evaluate_all_models(max_score: int = 10, models_dir: str = "models") -> dict
     return results
 
 
+def compare_pretrained_vs_online(max_score: int = 10, models_dir: str = "models") -> dict[str, dict[str, EvaluationResult]]:
+    """Compare pretrained vs online-trained models."""
+    from pathlib import Path
+
+    print("=" * 60)
+    print("COMPARING PRETRAINED VS ONLINE-TRAINED MODELS")
+    print("=" * 60)
+
+    results = {'ht': {}, 'ct': {}}
+
+    for model_key in ['ht', 'ct']:
+        model_name = 'Hoeffding Tree' if model_key == 'ht' else 'Weighted Forest'
+        pretrained_path = f"{'hoeffding_tree' if model_key == 'ht' else 'weighted_forest'}_pong.pkl"
+        metadata_path = f"{'hoeffding_tree' if model_key == 'ht' else 'weighted_forest'}_metadata.pkl"
+        online_path = f"{'hoeffding_tree' if model_key == 'ht' else 'weighted_forest'}_online.pkl"
+
+        print(f"\n{model_name}:")
+
+        try:
+            pretrained_model = Path(models_dir) / pretrained_path
+            pretrained_metadata = Path(models_dir) / metadata_path
+            if pretrained_model.exists():
+                ai = PongAIPlayer(pretrained_model, pretrained_metadata if pretrained_metadata.exists() else None)
+                result = evaluate_model(ai, f"{model_key}_pretrained", max_score)
+                results[model_key]['pretrained'] = result
+                print(f"  Pretrained: {result.survival_time_seconds:.2f}s, Score: {result.final_pc_score}-{result.final_ai_score}, Hits: {result.total_hits}")
+        except Exception as e:
+            print(f"  Pretrained: Error - {e}")
+
+        try:
+            online_model = Path(models_dir) / online_path
+            online_metadata = Path(models_dir) / metadata_path
+            if online_model.exists():
+                ai = PongAIPlayer(online_model, online_metadata if online_metadata.exists() else None)
+                result = evaluate_model(ai, f"{model_key}_online", max_score)
+                results[model_key]['online'] = result
+                print(f"  Online: {result.survival_time_seconds:.2f}s, Score: {result.final_pc_score}-{result.final_ai_score}, Hits: {result.total_hits}")
+
+                if 'pretrained' in results[model_key]:
+                    improvement = ((result.survival_time_seconds - results[model_key]['pretrained'].survival_time_seconds) / results[model_key]['pretrained'].survival_time_seconds) * 100
+                    print(f"  Improvement: {improvement:+.1f}%")
+        except Exception as e:
+            print(f"  Online: Error - {e}")
+
+    return results
+
+
 if __name__ == "__main__":
     results = evaluate_all_models(max_score=10)
 

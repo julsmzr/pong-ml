@@ -11,6 +11,7 @@ import csv
 from pathlib import Path
 
 from src.models.model_loader import PongAIPlayer
+from src.training.reward import StateSnapshot
 
 
 WIDTH, HEIGHT = 900, 600
@@ -67,6 +68,18 @@ def get_model_ai_input(ai_player: PongAIPlayer, paddle_y: float, ball_x: float, 
         print(f"AI prediction error: {e}")
         return "I"
 
+def capture_state(paddle_y: float, ball_x: float, ball_y: float, ball_angle: float, ball_speed: float, ball_vel_x: float, paddle_hits: int) -> StateSnapshot:
+    """Capture current game state for learning."""
+    return StateSnapshot(
+        paddle_y=paddle_y,
+        ball_x=ball_x,
+        ball_y=ball_y,
+        ball_angle=ball_angle,
+        ball_speed=ball_speed,
+        ball_moving_towards=(ball_vel_x > 0),
+        paddle_hits=paddle_hits
+    )
+
 def write_frame_data(csv_writer, frame_id: int, left_input: str, right_input: str, ball_speed: float) -> None:
     csv_writer.writerow([
         frame_id,
@@ -114,7 +127,7 @@ def _clamp(v: float, lo: float, hi: float) -> float:
 
 
 # Run Loop
-def main(right_ai: PongAIPlayer | None = None, right_mode: str = "human", left_mode: str = "human", max_score: int | None = None) -> GameState:
+def main(right_ai: PongAIPlayer | None = None, right_mode: str = "human", left_mode: str = "human", max_score: int | None = None, online_trainer = None, learning_mode: bool = False) -> GameState:
     """Run Pong game. left_mode: 'human'/'pc', right_mode: 'human'/'pc'/'dt'/'ht'/'ct'."""
     global state
 
@@ -156,6 +169,9 @@ def main(right_ai: PongAIPlayer | None = None, right_mode: str = "human", left_m
 
     _reset_ball(direction=1)
 
+    prev_state = None
+    prev_action = None
+
     running = True
     while running:
         dt = clock.tick(FPS) / 1000.0  # seconds since last frame
@@ -184,6 +200,16 @@ def main(right_ai: PongAIPlayer | None = None, right_mode: str = "human", left_m
             right_input = get_perfect_ai_input(state.right_paddle_y, state.ball_pos.y)
         else:
             right_input = get_right_input(keys)
+
+        if learning_mode and online_trainer and right_ai:
+            current_state = capture_state(state.right_paddle_y, state.ball_pos.x, state.ball_pos.y, state.ball_angle, BALL_SPEED * state.ball_speed_multiplier, state.ball_vel.x, state.right_paddle_hits)
+            if prev_state is not None and prev_action is not None:
+                online_trainer.learn(prev_state, prev_action, current_state)
+                if frame_id % 100 == 0 and frame_id > 0:
+                    metrics = online_trainer.get_metrics()
+                    print(f"[Frame {frame_id}] Metrics: {metrics}")
+            prev_state = current_state
+            prev_action = right_input
         
         # Use the input for movement
         if left_input == "U":
