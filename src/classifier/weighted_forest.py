@@ -1,6 +1,9 @@
 import numpy as np
 import random
 
+def euclidean_distance(v1: np.ndarray, v2: np.ndarray):
+    return np.sqrt(np.sum(np.square(v1 - v2)))
+
 class Weighted_Forest:
     class Cell:
         class Gate:

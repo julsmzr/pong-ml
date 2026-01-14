@@ -1,7 +1,7 @@
-"""Model loader utilities for loading trained ML models to play Pong."""
 import pickle
 from pathlib import Path
 import pandas as pd
+import numpy as np
 
 
 class PongAIPlayer:
@@ -20,15 +20,43 @@ class PongAIPlayer:
 
     def predict(self, paddle_y: float, ball_x: float, ball_y: float, ball_angle: float, ball_speed: float) -> str:
         """Predict next action: 'U', 'D', or 'I'."""
-        features = pd.DataFrame(
-            [[paddle_y, ball_x, ball_y, ball_angle, ball_speed]],
-            columns=['right_paddle_y', 'ball_x', 'ball_y', 'ball_angle', 'ball_speed']
-        )
+        y_diff = ball_y - (paddle_y + 50)  # 50 is PADDLE_H/2
 
-        # Add derived feature: vertical distance from ball to paddle center
-        features['y_diff'] = features['ball_y'] - (features['right_paddle_y'] + 50)  # 50 is PADDLE_H/2
+        # Check model type
+        if hasattr(self.model, 'predict_one'):
+            # River model: uses predict_one with dictionary input
+            features = {
+                'right_paddle_y': paddle_y,
+                'ball_x': ball_x,
+                'ball_y': ball_y,
+                'ball_angle': ball_angle,
+                'ball_speed': ball_speed,
+                'y_diff': y_diff
+            }
 
-        prediction = self.model.predict(features)[0]
+            prediction = self.model.predict_one(features)
+
+        elif hasattr(self.model, 'forward'):
+            # Weighted Forest: uses forward with numpy array and returns integer
+            features = np.array([paddle_y, ball_x, ball_y, ball_angle, ball_speed, y_diff])
+            pred_int = self.model.forward(features)
+
+            # Convert integer to string label
+            class_mapping = self.metadata.get('class_mapping', {0: 'D', 1: 'I', 2: 'U'})
+            reverse_mapping = {v: k for k, v in class_mapping.items()}
+
+            prediction = reverse_mapping[pred_int]
+
+        else:
+            # Sklearn model: uses predict with DataFrame input
+            features = pd.DataFrame(
+                [[paddle_y, ball_x, ball_y, ball_angle, ball_speed]],
+                columns=['right_paddle_y', 'ball_x', 'ball_y', 'ball_angle', 'ball_speed']
+            )
+            features['y_diff'] = y_diff
+
+            prediction = self.model.predict(features)[0]
+
         return prediction
 
     def get_info(self) -> dict:
@@ -45,10 +73,31 @@ def load_decision_tree_model(models_dir: str = "models") -> PongAIPlayer:
     metadata_file = models_path / "decision_tree_metadata.pkl"
 
     if not model_file.exists():
-        raise FileNotFoundError(
-            f"Decision Tree model not found at {model_file}. "
-            "Train it first: python3 src/models/decision_tree/offline_train.py"
-        )
+        raise FileNotFoundError(f"Decision Tree model not found at {model_file}. ")
+
+    return PongAIPlayer(model_file, metadata_file if metadata_file.exists() else None)
+
+
+def load_hoeffding_tree_model(models_dir: str = "models") -> PongAIPlayer:
+    """Load the Hoeffding Tree model."""
+    models_path = Path(models_dir)
+    model_file = models_path / "hoeffding_tree_pong.pkl"
+    metadata_file = models_path / "hoeffding_tree_metadata.pkl"
+
+    if not model_file.exists():
+        raise FileNotFoundError(f"Hoeffding Tree model not found at {model_file}. ")
+
+    return PongAIPlayer(model_file, metadata_file if metadata_file.exists() else None)
+
+
+def load_weighted_forest_model(models_dir: str = "models") -> PongAIPlayer:
+    """Load the Weighted Forest model."""
+    models_path = Path(models_dir)
+    model_file = models_path / "weighted_forest_pong.pkl"
+    metadata_file = models_path / "weighted_forest_metadata.pkl"
+
+    if not model_file.exists():
+        raise FileNotFoundError(f"Weighted Forest model not found at {model_file}. ")
 
     return PongAIPlayer(model_file, metadata_file if metadata_file.exists() else None)
 

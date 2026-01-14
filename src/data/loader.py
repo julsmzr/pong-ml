@@ -51,6 +51,27 @@ def load_training_data(random_state: int = 42) -> tuple[pd.DataFrame, pd.Series]
     return get_features_target(df)
 
 
+def load_training_data_class_balanced(random_state: int = 42) -> tuple[pd.DataFrame, pd.Series]:
+    """Load training data with balanced classes (equal D, I, U samples)."""
+    df = load_balanced(random_state=random_state)
+
+    # Balance by class: undersample majority class
+    df_D = df[df[TARGET_COL] == 'D']
+    df_I = df[df[TARGET_COL] == 'I']
+    df_U = df[df[TARGET_COL] == 'U']
+
+    min_count = min(len(df_D), len(df_I), len(df_U))
+
+    df_D_sampled = df_D.sample(n=min_count, random_state=random_state)
+    df_I_sampled = df_I.sample(n=min_count, random_state=random_state)
+    df_U_sampled = df_U.sample(n=min_count, random_state=random_state)
+
+    df_balanced = pd.concat([df_D_sampled, df_I_sampled, df_U_sampled], ignore_index=True)
+    df_balanced = df_balanced.sample(frac=1, random_state=random_state).reset_index(drop=True)
+
+    return get_features_target(df_balanced)
+
+
 if __name__ == "__main__":
     # Statistics
     hvh, hvpc = load_csvs_by_type()

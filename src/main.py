@@ -1,23 +1,22 @@
 from src.game.pong import main as run_pong
-from src.models.model_loader import load_decision_tree_model
+from src.models.model_loader import load_decision_tree_model, load_hoeffding_tree_model, load_weighted_forest_model
 
 
 def main(mode: str = "human") -> None:
     """Run Pong. mode: 'human', 'pc', 'dt', 'ht', 'ct'."""
     right_ai = None
 
-    if mode == "dt":
-        try:
-            right_ai = load_decision_tree_model()
-            print(f"Loaded Decision Tree (acc: {right_ai.get_info().get('test_accuracy', 0):.3f})")
-        except FileNotFoundError:
-            print("DT model not found. Train it: python3 src/models/decision_tree/offline_train.py")
-            exit(1)
-    elif mode == "ht":
-        print("Hoeffding Tree not yet implemented")
-        exit(1)
-    elif mode == "ct":
-        print("Custom Tree not yet implemented")
+    mode_registry = {
+        "dt": load_decision_tree_model,
+        "ht": load_hoeffding_tree_model,
+        "ct": load_weighted_forest_model
+    }
+    
+    try:
+        right_ai = mode_registry[mode]()
+        print(f"Loaded {mode}")
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
         exit(1)
 
     run_pong(right_ai=right_ai, right_mode=mode)
