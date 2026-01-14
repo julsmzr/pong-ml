@@ -90,21 +90,14 @@ class GameState:
     ball_speed_multiplier: float
     left_score: int
     right_score: int
+    right_paddle_hits: int = 0  # Track hits by right paddle
+    frame_count: int = 0  # Track total frames
 
     def update_angle(self) -> None:
         # atan2(y, x) -> radians; keep in (-pi, pi]
         self.ball_angle = math.atan2(self.ball_vel.y, self.ball_vel.x)
 
-state = GameState(
-    left_paddle_y=(HEIGHT - PADDLE_H) / 2,
-    right_paddle_y=(HEIGHT - PADDLE_H) / 2,
-    ball_pos=pygame.Vector2(WIDTH / 2, HEIGHT / 2),
-    ball_vel=pygame.Vector2(BALL_SPEED, 0),  # starts to the right
-    ball_angle=0.0,
-    ball_speed_multiplier=1.0,
-    left_score=0,
-    right_score=0,
-)
+state = None  # Will be initialized in main()
 
 
 def _reset_ball(direction: int = 1) -> None:
@@ -121,28 +114,43 @@ def _clamp(v: float, lo: float, hi: float) -> float:
 
 
 # Run Loop
-def main(right_ai: PongAIPlayer | None = None, right_mode: str = "human") -> None:
-    """Run Pong game. right_mode: 'human', 'pc', 'dt', 'ht', 'ct'."""
+def main(right_ai: PongAIPlayer | None = None, right_mode: str = "human", left_mode: str = "human", max_score: int | None = None) -> GameState:
+    """Run Pong game. left_mode: 'human'/'pc', right_mode: 'human'/'pc'/'dt'/'ht'/'ct'."""
+    global state
+
+    # Initialize fresh game state
+    state = GameState(
+        left_paddle_y=(HEIGHT - PADDLE_H) / 2,
+        right_paddle_y=(HEIGHT - PADDLE_H) / 2,
+        ball_pos=pygame.Vector2(WIDTH / 2, HEIGHT / 2),
+        ball_vel=pygame.Vector2(BALL_SPEED, 0),
+        ball_angle=0.0,
+        ball_speed_multiplier=1.0,
+        left_score=0,
+        right_score=0,
+    )
+
     pygame.init()
 
-    # Set caption based on right player type
-    mode_labels = {"human": "↑/↓", "pc": "PC", "dt": "DT", "ht": "HT", "ct": "CT"}
+    # Set caption based on player types
+    mode_labels = {"human": "Q/A", "pc": "PC", "dt": "DT", "ht": "HT", "ct": "CT"}
+    left_label = "Q/A" if left_mode == "human" else "PC"
     right_label = mode_labels.get(right_mode, "AI")
-    pygame.display.set_caption(f"Pong (Q/A vs {right_label})")
+    pygame.display.set_caption(f"Pong ({left_label} vs {right_label})")
 
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     clock = pygame.time.Clock()
     font = pygame.font.SysFont(None, 56)
 
     # Data collection setup
-    prefix = f"hv{right_mode}"
+    prefix = f"{left_mode}v{right_mode}"
     run_number = 0
     while (DATA_DIR / f"{prefix}_{run_number:04d}.csv").exists():
         run_number += 1
 
     csv_file = open(DATA_DIR / f"{prefix}_{run_number:04d}.csv", "w", newline="")
     csv_writer = csv.writer(csv_file)
-    csv_writer.writerow(["frame_id", "left_input", "right_input", "left_paddle_y", "right_paddle_y", 
+    csv_writer.writerow(["frame_id", "left_input", "right_input", "left_paddle_y", "right_paddle_y",
                         "ball_x", "ball_y", "ball_angle", "ball_speed"])
     frame_id = 0
 
@@ -157,9 +165,17 @@ def main(right_ai: PongAIPlayer | None = None, right_mode: str = "human") -> Non
             if e.type == pygame.QUIT:
                 running = False
 
+        # Check end condition
+        if max_score and (state.left_score >= max_score or state.right_score >= max_score):
+            running = False
+            break
+
          # Input
         keys = pygame.key.get_pressed()
-        left_input = get_left_input(keys)
+        if left_mode == "pc":
+            left_input = get_perfect_ai_input(state.left_paddle_y, state.ball_pos.y)
+        else:
+            left_input = get_left_input(keys)
 
         # Right input based on mode
         if right_ai:
@@ -212,6 +228,7 @@ def main(right_ai: PongAIPlayer | None = None, right_mode: str = "human") -> Non
         # Right paddle collision
         if ball_rect.colliderect(right_rect) and state.ball_vel.x > 0:
             state.ball_speed_multiplier *= 1.1
+            state.right_paddle_hits += 1
             hit_rel = (state.ball_pos.y + BALL_SIZE / 2) - (right_rect.centery)
             norm = _clamp(hit_rel / (PADDLE_H / 2), -1.0, 1.0)
             angle = norm * (math.pi / 3)
@@ -254,11 +271,14 @@ def main(right_ai: PongAIPlayer | None = None, right_mode: str = "human") -> Non
         # Write frame data
         write_frame_data(csv_writer, frame_id, left_input, right_input, BALL_SPEED * state.ball_speed_multiplier)
         frame_id += 1
+        state.frame_count += 1
 
         pygame.display.flip()
 
     csv_file.close()
     pygame.quit()
+
+    return state
 
 
 if __name__ == "__main__":
