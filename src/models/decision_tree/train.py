@@ -1,4 +1,4 @@
-import numpy as np
+import os
 import pandas as pd
 import pickle
 from sklearn.tree import DecisionTreeClassifier
@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 import matplotlib.pyplot as plt
 
-from data.loader import load_training_data, FEATURE_COLS, TARGET_COL
+from src.data.loader import load_training_data, TARGET_COL
 
 
 def train_decision_tree(
@@ -52,7 +52,8 @@ def train_decision_tree(
         min_samples_split=min_samples_split,
         min_samples_leaf=min_samples_leaf,
         random_state=random_state,
-        criterion='gini'
+        criterion='gini',
+        class_weight='balanced'  # Handle class imbalance
     )
 
     clf.fit(X_train, y_train)
@@ -78,18 +79,20 @@ def train_decision_tree(
 
     # Feature importance
     print("\n  Feature Importances:")
+    feature_names = list(X_train.columns)  # Get actual feature names from the data
     feature_importance = pd.DataFrame({
-        'feature': FEATURE_COLS,
+        'feature': feature_names,
         'importance': clf.feature_importances_
     }).sort_values('importance', ascending=False)
     print(feature_importance.to_string(index=False))
 
     # Save model
     print(f"\n[5/5] Saving model...")
+    
     models_dir = "models"
-    models_dir.mkdir(exist_ok=True)
+    os.makedirs(models_dir, exist_ok=True)
+    model_path = f"{models_dir}/decision_tree_pong.pkl"
 
-    model_path = models_dir / "decision_tree_pong.pkl"
     with open(model_path, 'wb') as f:
         pickle.dump(clf, f)
     print(f"  Model saved to: {model_path}")
@@ -107,12 +110,12 @@ def train_decision_tree(
             'min_samples_leaf': min_samples_leaf,
             'random_state': random_state
         },
-        'features': FEATURE_COLS,
+        'features': feature_names,
         'target': TARGET_COL,
         'classes': sorted(y.unique())
     }
 
-    metadata_path = models_dir / "decision_tree_metadata.pkl"
+    metadata_path =f"{models_dir}/decision_tree_metadata.pkl"
     with open(metadata_path, 'wb') as f:
         pickle.dump(metadata, f)
     print(f"  Metadata saved to: {metadata_path}")
@@ -147,11 +150,10 @@ def visualize_results(clf: DecisionTreeClassifier, feature_importance: pd.DataFr
 
 
 def main() -> None:
-    # Train the model
     clf, X_test, y_test, metrics = train_decision_tree(
-        max_depth=10,
-        min_samples_split=20,
-        min_samples_leaf=10,
+        max_depth=20,
+        min_samples_split=10,
+        min_samples_leaf=5,
         random_state=42,
         test_size=0.2
     )

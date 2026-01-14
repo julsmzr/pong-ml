@@ -1,7 +1,7 @@
 """Model loader utilities for loading trained ML models to play Pong."""
 import pickle
 from pathlib import Path
-import numpy as np
+import pandas as pd
 
 
 class PongAIPlayer:
@@ -20,7 +20,14 @@ class PongAIPlayer:
 
     def predict(self, paddle_y: float, ball_x: float, ball_y: float, ball_angle: float, ball_speed: float) -> str:
         """Predict next action: 'U', 'D', or 'I'."""
-        features = np.array([[paddle_y, ball_x, ball_y, ball_angle, ball_speed]])
+        features = pd.DataFrame(
+            [[paddle_y, ball_x, ball_y, ball_angle, ball_speed]],
+            columns=['right_paddle_y', 'ball_x', 'ball_y', 'ball_angle', 'ball_speed']
+        )
+
+        # Add derived feature: vertical distance from ball to paddle center
+        features['y_diff'] = features['ball_y'] - (features['right_paddle_y'] + 50)  # 50 is PADDLE_H/2
+
         prediction = self.model.predict(features)[0]
         return prediction
 

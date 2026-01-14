@@ -11,7 +11,7 @@ TARGET_COL = "right_input"
 
 def load_csvs_by_type() -> tuple[pd.DataFrame, pd.DataFrame]:
     """Load all CSVs and separate by game type."""
-    hvh_files = sorted(glob.glob(os.path.join(DATA_DIR, "hvh_*.csv")))
+    hvh_files = sorted(glob.glob(os.path.join(DATA_DIR, "hvhuman_*.csv")))
     hvpc_files = sorted(glob.glob(os.path.join(DATA_DIR, "hvpc_*.csv")))
 
     hvh_df = pd.concat([pd.read_csv(f) for f in hvh_files], ignore_index=True) if hvh_files else pd.DataFrame()
@@ -21,11 +21,11 @@ def load_csvs_by_type() -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 def load_balanced(random_state: int = 42) -> pd.DataFrame:
-    """Load and merge data with 50/50 balance between hvh and hvpc."""
+    """Load and merge data with 50/50 balance between hvhuman and hvpc."""
     hvh_df, hvpc_df = load_csvs_by_type()
 
     if hvh_df.empty or hvpc_df.empty:
-        raise ValueError("Need both hvh and hvpc data files")
+        raise ValueError("Need both hvhuman and hvpc data files")
 
     # Balance by undersampling the larger set
     min_size = min(len(hvh_df), len(hvpc_df))
@@ -36,8 +36,12 @@ def load_balanced(random_state: int = 42) -> pd.DataFrame:
     return merged.sample(frac=1, random_state=random_state).reset_index(drop=True)  # shuffle
 
 
-def get_features_target(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
-    X = df[FEATURE_COLS]
+def get_features_target(df: pd.DataFrame, add_derived_features: bool = True) -> tuple[pd.DataFrame, pd.Series]:
+    X = df[FEATURE_COLS].copy()
+
+    if add_derived_features:
+        X['y_diff'] = X['ball_y'] - (X['right_paddle_y'] + 50)  # 50 is PADDLE_H/2
+
     y = df[TARGET_COL]
     return X, y
 
