@@ -3,10 +3,11 @@ import pandas as pd
 import pickle
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, balanced_accuracy_score
 
-from src.data.loader import load_training_data_class_balanced, TARGET_COL
-from src.models.weighted_forest.clf import Weighted_Forest, euclidean_distance
+from src.data.loader import load_training_data, TARGET_COL
+from src.data.preparation import min_max_scale, convert_str_to_int, undersample
+from src.models.weighted_forest.clf import WeightedForest, euclidean_distance
 
 
 VERBOSE = False
@@ -21,23 +22,31 @@ def train_weighted_forest(
     accuracy_goal: float = 0.8,
     epochs: int = 3,
     random_state: int = 42,
-    test_size: float = 0.2
-) -> tuple[Weighted_Forest, pd.DataFrame, pd.Series, dict]:
+    test_size: float = 0.1,
+    initializer_low: float = 0,
+    initializer_high: float = 1
+) -> tuple[WeightedForest, pd.DataFrame, pd.Series, dict]:
     """Train a Weighted Forest classifier on Pong data."""
     print("Running offline training for Weighted Forest")
 
     print("Loading data...")
-    X, y = load_training_data_class_balanced(random_state=random_state)
+    X, y = load_training_data(random_state=random_state)
+    feature_columns = list(X.columns)
 
     vprint(f"  Total samples: {len(X)}")
-    vprint(f"  Features: {list(X.columns)}")
+    vprint(f"  Features: {feature_columns}")
     vprint(f"  Classes: {sorted(y.unique())}")
-    vprint(f"  Class distribution (balanced):\n{y.value_counts()}")
 
-    # Convert to numpy and encode labels
     X_np = X.to_numpy()
-    class_mapping = {'D': 0, 'I': 1, 'U': 2}
-    y_np = y.map(class_mapping).to_numpy()
+    y_np = y.to_numpy()
+
+    print("Preparing data...")
+    X_np, feature_min, feature_max = min_max_scale(X_np)
+    y_np, class_mapping = convert_str_to_int(y_np)
+    X_np, y_np = undersample(X_np, y_np, random_seed=random_state)
+
+    vprint(f"  After undersampling: {len(X_np)} samples")
+    vprint(f"  Class distribution (balanced): {np.bincount(y_np)}")
 
     X_train, X_test, y_train, y_test = train_test_split(
         X_np, y_np,
@@ -56,12 +65,15 @@ def train_weighted_forest(
     vprint(f"    accuracy_goal: {accuracy_goal}")
     vprint(f"    epochs: {epochs}")
 
-    clf = Weighted_Forest(
+    clf = WeightedForest(
         num_features=X_train.shape[1],
         num_classes=len(class_mapping),
         distance_function=euclidean_distance,
         learning_decay=learning_decay,
-        accuracy_goal=accuracy_goal
+        accuracy_goal=accuracy_goal,
+        initializer_low=initializer_low,
+        initializer_high=initializer_high,
+        random_seed=random_state
     )
 
     epoch_accuracies = clf.fit(X_train, y_train, epochs=epochs)
@@ -76,11 +88,14 @@ def train_weighted_forest(
     train_acc = accuracy_score(y_train, y_train_pred)
     test_acc = accuracy_score(y_test, y_test_pred)
 
+    test_balanced_acc = balanced_accuracy_score(y_test, y_test_pred)
+
     print(f"  Training Accuracy: {train_acc:.4f}")
     print(f"  Test Accuracy: {test_acc:.4f}")
+    print(f"  Test Balanced Accuracy: {test_balanced_acc:.4f}")
 
     # Convert back to string labels for classification report
-    reverse_mapping = {0: 'D', 1: 'I', 2: 'U'}
+    reverse_mapping = {v: k for k, v in class_mapping.items()}
     y_test_str = pd.Series(y_test).map(reverse_mapping)
     y_test_pred_str = pd.Series(y_test_pred).map(reverse_mapping)
 
@@ -104,17 +119,24 @@ def train_weighted_forest(
         'model_type': 'WeightedForest',
         'train_accuracy': train_acc,
         'test_accuracy': test_acc,
+        'test_balanced_accuracy': test_balanced_acc,
         'num_cells': len(clf.cells),
         'hyperparameters': {
             'learning_decay': learning_decay,
             'accuracy_goal': accuracy_goal,
             'epochs': epochs,
-            'random_state': random_state
+            'random_state': random_state,
+            'initializer_low': initializer_low,
+            'initializer_high': initializer_high
         },
-        'features': list(X.columns),
+        'features': feature_columns,
         'target': TARGET_COL,
-        'classes': sorted(y.unique()),
-        'class_mapping': class_mapping
+        'classes': list(class_mapping.keys()),
+        'class_mapping': class_mapping,
+        'scaler': {
+            'feature_min': feature_min,
+            'feature_max': feature_max
+        }
     }
 
     metadata_path = f"{models_dir}/weighted_forest_metadata.pkl"
@@ -128,17 +150,20 @@ def train_weighted_forest(
     return clf, X_test, y_test, {
         'train_acc': train_acc,
         'test_acc': test_acc,
+        'test_balanced_acc': test_balanced_acc,
         'epoch_accuracies': epoch_accuracies
     }
 
 
 def main() -> None:
     train_weighted_forest(
-        learning_decay=0.95, 
-        accuracy_goal=0.65, 
-        epochs=5, 
+        learning_decay=0.95,
+        accuracy_goal=0.65,
+        epochs=5,
         random_state=42,
-        test_size=0.2
+        test_size=0.1,
+        initializer_low=0,
+        initializer_high=1
     )
 
 

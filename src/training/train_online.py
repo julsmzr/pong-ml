@@ -97,10 +97,13 @@ def train_weighted_forest_online(
     vprint("  Model loaded successfully")
 
     print(f"Setting up online trainer...")
-    class_mapping = metadata.get('class_mapping', {0: 'D', 1: 'I', 2: 'U'})
-    trainer = WeightedForestOnlineTrainer(model, class_mapping)
+    class_mapping = metadata.get('class_mapping', {'D': 0, 'I': 1, 'U': 2})
+    scaler = metadata.get('scaler', None)
+    trainer = WeightedForestOnlineTrainer(model, class_mapping, scaler=scaler)
     ai_player = TrainerAIWrapper(trainer)
     vprint("  Trainer initialized")
+    if scaler is not None:
+        vprint("  Using min-max scaling from offline training")
 
     print(f"Running {num_episodes} training episodes...")
     metrics_log = []
@@ -130,7 +133,7 @@ def train_weighted_forest_online(
         vprint(f"  Updates: {episode_metrics['total_updates']}, Avg Reward: {episode_metrics['avg_reward']:.3f}, Accuracy: {episode_metrics['accuracy']:.3f}, Cells: {episode_metrics['num_cells']}")
 
         if (episode + 1) % save_interval == 0:
-            checkpoint_path = Path(output_dir) / f"weighted_forest_online_ep{episode + 1}.pkl"
+            checkpoint_path = f"{output_dir}/weighted_forest_online_ep{episode + 1}.pkl"
             trainer.save_model(checkpoint_path)
             vprint(f"  Checkpoint saved to {checkpoint_path}")
 
