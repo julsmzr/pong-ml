@@ -2,30 +2,26 @@ import gdown
 import zipfile
 import os
 
-VERBOSE = True
+VERBOSE = False
 
 
-def vprint(verbose: bool, *args, **kwargs) -> None:
-    """Prints only if verbose is True."""
-    if verbose:
-        print(*args, **kwargs)
-
+def vprint(message: str) -> None:
+    if VERBOSE:
+        print(message)
 
 def download(url: str, zip_path: str, verbose: bool) -> None:
     """Downloads file from Google Drive URL to specified path."""
     gdown.download(url, zip_path, quiet=False)
 
     if not os.path.exists(zip_path):
-        vprint(verbose, "The dataset could not be downloaded sucessfully.")
-        vprint(verbose, "Please download it manully using the url below and place it in datasets/anti-uav300-raw.\n")
+        print("The dataset could not be downloaded sucessfully.")
+        print(f"Please download it manully using the url below and place it in the root directory and rename to {zip_path}.\n")
 
-        vprint(verbose, "-" * 50)
-        vprint(verbose, url)
-        vprint(verbose, "-" * 50)
+        print("-" * 50)
+        print(url)
+        print("-" * 50)
 
-        input("\nPress Enter to continue.")
-    else:
-        vprint(verbose, f"Dataset download completed.")
+        input("\nPress Enter to continue or Ctrl+C to exit.")
 
 def extract(zip_path: str, extract_dir: str, verbose: bool, remove_zip: bool) -> None:
     """Extracts ZIP archive to target directory and optionally removes the ZIP file."""
@@ -34,9 +30,9 @@ def extract(zip_path: str, extract_dir: str, verbose: bool, remove_zip: bool) ->
 
     if remove_zip:
         os.remove(zip_path)
-        vprint(verbose, "Zip removed successfully")
+        vprint("Zip removed successfully")
 
-    vprint(verbose, f"File extracted to {extract_dir}")
+    vprint(f"File extracted to {extract_dir}")
 
 def download_and_extract(url: str,
     zip_path: str,
@@ -51,7 +47,7 @@ def download_and_extract(url: str,
         download(url, zip_path, verbose)
         extract(zip_path, extract_dir, verbose, remove_zip)
 
-        vprint(verbose, f"Dataset was downloaded and extracted to {extract_dir}.")
+        vprint(f"Dataset was downloaded and extracted to {extract_dir}.")
     except KeyboardInterrupt:
         print("Download Aborted.")
         return False

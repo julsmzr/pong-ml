@@ -3,13 +3,13 @@ from src.models.model_loader import load_decision_tree_model, load_hoeffding_tre
 
 
 def main(mode: str = "human") -> None:
-    """Run Pong. mode: 'human', 'pc', 'dt', 'ht', 'ct'."""
+    """Run Pong. mode: 'human', 'pc', 'dt', 'ht', 'wf'."""
     right_ai = None
 
     mode_registry = {
         "dt": load_decision_tree_model,
         "ht": load_hoeffding_tree_model,
-        "ct": load_weighted_forest_model
+        "wf": load_weighted_forest_model
     }
     
     try:
@@ -25,6 +25,6 @@ def main(mode: str = "human") -> None:
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Play Pong")
-    parser.add_argument("--mode", choices=["human", "pc", "dt", "ht", "ct"], default="pc", help="Right player mode")
+    parser.add_argument("--mode", choices=["human", "pc", "dt", "ht", "wf"], default="pc", help="Right player mode")
     args = parser.parse_args()
     main(args.mode)

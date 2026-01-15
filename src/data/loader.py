@@ -11,8 +11,8 @@ TARGET_COL = "right_input"
 
 def load_csvs_by_type() -> tuple[pd.DataFrame, pd.DataFrame]:
     """Load all CSVs and separate by game type."""
-    hvh_files = sorted(glob.glob(os.path.join(DATA_DIR, "hvhuman_*.csv")))
-    hvpc_files = sorted(glob.glob(os.path.join(DATA_DIR, "hvpc_*.csv")))
+    hvh_files = sorted(glob.glob(f"{DATA_DIR}/hvhuman_*.csv"))
+    hvpc_files = sorted(glob.glob(f"{DATA_DIR}/hvpc_*.csv"))
 
     hvh_df = pd.concat([pd.read_csv(f) for f in hvh_files], ignore_index=True) if hvh_files else pd.DataFrame()
     hvpc_df = pd.concat([pd.read_csv(f) for f in hvpc_files], ignore_index=True) if hvpc_files else pd.DataFrame()
@@ -70,15 +70,3 @@ def load_training_data_class_balanced(random_state: int = 42) -> tuple[pd.DataFr
     df_balanced = df_balanced.sample(frac=1, random_state=random_state).reset_index(drop=True)
 
     return get_features_target(df_balanced)
-
-
-if __name__ == "__main__":
-    # Statistics
-    hvh, hvpc = load_csvs_by_type()
-    print(f"HvH samples: {len(hvh)}")
-    print(f"HvPC samples: {len(hvpc)}")
-
-    X, y = load_training_data()
-    print(f"\nBalanced training set: {len(X)} samples")
-    print(f"Features: {list(X.columns)}")
-    print(f"Target distribution:\n{y.value_counts()}")

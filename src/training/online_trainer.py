@@ -1,6 +1,6 @@
+import os
 import pickle
 from abc import ABC, abstractmethod
-from pathlib import Path
 import numpy as np
 from collections import deque
 
@@ -47,7 +47,7 @@ class OnlineTrainer(ABC):
             self.metrics['avg_reward'] = self.metrics['total_reward'] / self.metrics['total_updates']
         return self.metrics.copy()
 
-    def save_model(self, path: str | Path) -> None:
+    def save_model(self, path: str) -> None:
         """Save updated model."""
         with open(path, 'wb') as f:
             pickle.dump(self.model, f)

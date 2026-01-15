@@ -1,4 +1,6 @@
+import os
 from dataclasses import dataclass
+
 from src.game.pong import main as run_pong_game, FPS
 from src.models.model_loader import PongAIPlayer
 
@@ -15,13 +17,10 @@ class EvaluationResult:
 
     def __str__(self) -> str:
         return (
-            f"\n{'='*50}\n"
-            f"Evaluation Results: {self.model_name.upper()}\n"
-            f"{'='*50}\n"
+            f"Evaluation Results for {self.model_name.upper()}\n"
             f"Survival Time: {self.survival_time_seconds:.2f}s ({self.survival_time_frames} frames)\n"
             f"Final Score: PC {self.final_pc_score} - {self.final_ai_score} AI\n"
             f"Total Ball Hits by AI: {self.total_hits}\n"
-            f"{'='*50}\n"
         )
 
 
@@ -46,7 +45,7 @@ def evaluate_model(ai_player: PongAIPlayer, model_name: str, max_score: int = 10
     )
 
 
-def evaluate_all_models(max_score: int = 10, models_dir: str = "models") -> dict[str, EvaluationResult]:
+def evaluate_all_models(max_score: int = 10) -> dict[str, EvaluationResult]:
     """Evaluate all three models and return results."""
     from src.models.model_loader import (
         load_decision_tree_model,
@@ -65,7 +64,7 @@ def evaluate_all_models(max_score: int = 10, models_dir: str = "models") -> dict
     for model_key, (model_name, loader_func) in models.items():
         print(f"\nEvaluating {model_name}...")
         try:
-            ai_player = loader_func(models_dir)
+            ai_player = loader_func(f"models/{model_key}")
             result = evaluate_model(ai_player, model_key, max_score)
             results[model_key] = result
             print(result)
@@ -77,13 +76,10 @@ def evaluate_all_models(max_score: int = 10, models_dir: str = "models") -> dict
     return results
 
 
-def compare_pretrained_vs_online(max_score: int = 10, models_dir: str = "models") -> dict[str, dict[str, EvaluationResult]]:
+def compare_pretrained_vs_online(max_score: int = 10) -> dict[str, dict[str, EvaluationResult]]:
     """Compare pretrained vs online-trained models."""
-    from pathlib import Path
 
-    print("=" * 60)
-    print("COMPARING PRETRAINED VS ONLINE-TRAINED MODELS")
-    print("=" * 60)
+    print("Comparing pre-trained vs online-trained models")
 
     results = {'ht': {}, 'ct': {}}
 
@@ -95,11 +91,13 @@ def compare_pretrained_vs_online(max_score: int = 10, models_dir: str = "models"
 
         print(f"\n{model_name}:")
 
+        models_dir = f"models/{"ht" if model_key == 'ht' else "wf"}"
+
         try:
-            pretrained_model = Path(models_dir) / pretrained_path
-            pretrained_metadata = Path(models_dir) / metadata_path
-            if pretrained_model.exists():
-                ai = PongAIPlayer(pretrained_model, pretrained_metadata if pretrained_metadata.exists() else None)
+            pretrained_model = f"{models_dir}/{pretrained_path}"
+            pretrained_metadata = f"{models_dir}/{metadata_path}"
+            if os.path.exists(pretrained_model):
+                ai = PongAIPlayer(pretrained_model, pretrained_metadata if os.path.exists(pretrained_metadata) else None)
                 result = evaluate_model(ai, f"{model_key}_pretrained", max_score)
                 results[model_key]['pretrained'] = result
                 print(f"  Pretrained: {result.survival_time_seconds:.2f}s, Score: {result.final_pc_score}-{result.final_ai_score}, Hits: {result.total_hits}")
@@ -107,10 +105,10 @@ def compare_pretrained_vs_online(max_score: int = 10, models_dir: str = "models"
             print(f"  Pretrained: Error - {e}")
 
         try:
-            online_model = Path(models_dir) / online_path
-            online_metadata = Path(models_dir) / metadata_path
-            if online_model.exists():
-                ai = PongAIPlayer(online_model, online_metadata if online_metadata.exists() else None)
+            online_model = f"{models_dir}/{online_path}"
+            online_metadata = f"{models_dir}/{metadata_path}"
+            if os.path.exists(online_model):
+                ai = PongAIPlayer(online_model, online_metadata if os.path.exists(online_metadata) else None)
                 result = evaluate_model(ai, f"{model_key}_online", max_score)
                 results[model_key]['online'] = result
                 print(f"  Online: {result.survival_time_seconds:.2f}s, Score: {result.final_pc_score}-{result.final_ai_score}, Hits: {result.total_hits}")
@@ -122,15 +120,3 @@ def compare_pretrained_vs_online(max_score: int = 10, models_dir: str = "models"
             print(f"  Online: Error - {e}")
 
     return results
-
-
-if __name__ == "__main__":
-    results = evaluate_all_models(max_score=10)
-
-    print("\n" + "="*50)
-    print("SUMMARY OF ALL EVALUATIONS")
-    print("="*50)
-    for model_name, result in results.items():
-        print(f"{model_name.upper()}: {result.survival_time_seconds:.2f}s, "
-              f"Score {result.final_pc_score}-{result.final_ai_score}, "
-              f"Hits: {result.total_hits}")

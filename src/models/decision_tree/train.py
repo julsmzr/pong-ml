@@ -8,6 +8,12 @@ import matplotlib.pyplot as plt
 
 from src.data.loader import load_training_data, TARGET_COL
 
+VERBOSE = False
+
+
+def vprint(message: str) -> None:
+    if VERBOSE:
+        print(message)
 
 def train_decision_tree(
     max_depth: int = 10,
@@ -17,35 +23,30 @@ def train_decision_tree(
     test_size: float = 0.2
 ) -> tuple[DecisionTreeClassifier, pd.DataFrame, pd.Series, dict]:
     """Train a Decision Tree classifier on Pong data."""
-    print("=" * 60)
-    print("DECISION TREE OFFLINE TRAINING - PONG")
-    print("=" * 60)
+    print("Running offline training for Decision Tree")
 
-    # Load data
-    print("\n[1/5] Loading data...")
+    print("Loading data...")
     X, y = load_training_data(random_state=random_state)
-    print(f"  Total samples: {len(X)}")
-    print(f"  Features: {list(X.columns)}")
-    print(f"  Classes: {sorted(y.unique())}")
-    print(f"  Class distribution:\n{y.value_counts()}")
 
-    # Split data
-    print(f"\n[2/5] Splitting data (test_size={test_size})...")
+    vprint(f"  Total samples: {len(X)}")
+    vprint(f"  Features: {list(X.columns)}")
+    vprint(f"  Classes: {sorted(y.unique())}")
+    vprint(f"  Class distribution:\n{y.value_counts()}")
+
     X_train, X_test, y_train, y_test = train_test_split(
         X, y,
         test_size=test_size,
         random_state=random_state,
         stratify=y
     )
-    print(f"  Training samples: {len(X_train)}")
-    print(f"  Test samples: {len(X_test)}")
+    vprint(f"  Training samples: {len(X_train)}")
+    vprint(f"  Test samples: {len(X_test)}")
 
-    # Train model
-    print(f"\n[3/5] Training Decision Tree...")
-    print(f"  Hyperparameters:")
-    print(f"    max_depth: {max_depth}")
-    print(f"    min_samples_split: {min_samples_split}")
-    print(f"    min_samples_leaf: {min_samples_leaf}")
+    print(f"Training Decision Tree...")
+    vprint(f"  Hyperparameters:")
+    vprint(f"    max_depth: {max_depth}")
+    vprint(f"    min_samples_split: {min_samples_split}")
+    vprint(f"    min_samples_leaf: {min_samples_leaf}")
 
     clf = DecisionTreeClassifier(
         max_depth=max_depth,
@@ -57,11 +58,10 @@ def train_decision_tree(
     )
 
     clf.fit(X_train, y_train)
-    print(f"  Tree depth: {clf.get_depth()}")
-    print(f"  Number of leaves: {clf.get_n_leaves()}")
+    vprint(f"  Tree depth: {clf.get_depth()}")
+    vprint(f"  Number of leaves: {clf.get_n_leaves()}")
 
-    # Evaluate
-    print(f"\n[4/5] Evaluating model...")
+    print(f"Evaluating model...")
     y_train_pred = clf.predict(X_train)
     y_test_pred = clf.predict(X_test)
 
@@ -71,25 +71,22 @@ def train_decision_tree(
     print(f"  Training Accuracy: {train_acc:.4f}")
     print(f"  Test Accuracy: {test_acc:.4f}")
 
-    print("\n  Classification Report (Test Set):")
-    print(classification_report(y_test, y_test_pred))
+    vprint("  Classification Report (Test Set):")
+    vprint(classification_report(y_test, y_test_pred))
 
-    print("\n  Confusion Matrix (Test Set):")
-    print(confusion_matrix(y_test, y_test_pred))
+    vprint("  Confusion Matrix (Test Set):")
+    vprint(confusion_matrix(y_test, y_test_pred))
 
-    # Feature importance
-    print("\n  Feature Importances:")
-    feature_names = list(X_train.columns)  # Get actual feature names from the data
+    vprint("  Feature Importances:")
+    feature_names = list(X_train.columns)
     feature_importance = pd.DataFrame({
         'feature': feature_names,
         'importance': clf.feature_importances_
     }).sort_values('importance', ascending=False)
-    print(feature_importance.to_string(index=False))
+    vprint(feature_importance.to_string(index=False))
 
-    # Save model
-    print(f"\n[5/5] Saving model...")
-    
-    models_dir = "models"
+    print(f"Saving model...")
+    models_dir = "models/dt"
     os.makedirs(models_dir, exist_ok=True)
     model_path = f"{models_dir}/decision_tree_pong.pkl"
 
@@ -97,7 +94,6 @@ def train_decision_tree(
         pickle.dump(clf, f)
     print(f"  Model saved to: {model_path}")
 
-    # Also save metadata
     metadata = {
         'model_type': 'DecisionTreeClassifier',
         'train_accuracy': train_acc,
@@ -120,9 +116,7 @@ def train_decision_tree(
         pickle.dump(metadata, f)
     print(f"  Metadata saved to: {metadata_path}")
 
-    print("\n" + "=" * 60)
-    print("TRAINING COMPLETE!")
-    print("=" * 60)
+    print("Training Finished for Decision Tree\n")
 
     return clf, X_test, y_test, {
         'train_acc': train_acc,
@@ -131,9 +125,9 @@ def train_decision_tree(
     }
 
 
-def visualize_results(clf: DecisionTreeClassifier, feature_importance: pd.DataFrame, save_path: str | None = None) -> None:
+def visualize_results(feature_importance: pd.DataFrame, save_path: str | None = None) -> None:
     """Create visualization of feature importance."""
-    fig, ax = plt.subplots(figsize=(10, 6))
+    _, ax = plt.subplots(figsize=(10, 6))
 
     ax.barh(feature_importance['feature'], feature_importance['importance'])
     ax.set_xlabel('Importance')
@@ -149,8 +143,8 @@ def visualize_results(clf: DecisionTreeClassifier, feature_importance: pd.DataFr
     plt.show()
 
 
-def main() -> None:
-    clf, X_test, y_test, metrics = train_decision_tree(
+def main(visualize_results: bool = False) -> None:
+    _, _, _, metrics = train_decision_tree(
         max_depth=20,
         min_samples_split=10,
         min_samples_leaf=5,
@@ -158,13 +152,13 @@ def main() -> None:
         test_size=0.2
     )
 
-    # Visualize feature importance
+    if not visualize_results:
+        return
+    
     visualize_results(
-        clf,
         metrics['feature_importance'],
         save_path="models/dt_feature_importance.png"
     )
-
 
 if __name__ == "__main__":
     main()

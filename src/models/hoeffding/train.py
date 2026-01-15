@@ -7,6 +7,12 @@ from sklearn.metrics import classification_report, confusion_matrix
 
 from src.data.loader import load_training_data_class_balanced, TARGET_COL
 
+VERBOSE = False
+
+
+def vprint(message: str) -> None:
+    if VERBOSE:
+        print(message)
 
 def train_hoeffding_tree(
     grace_period: int = 200,
@@ -16,39 +22,32 @@ def train_hoeffding_tree(
     random_state: int = 42,
     test_size: float = 0.2
 ) -> tuple[tree.HoeffdingTreeClassifier, pd.DataFrame, pd.Series, dict]:
-    """Offline pretraining of Hoeffding Tree on existing data (online tuning during gameplay can be added later)."""
-    print("=" * 60)
-    print("HOEFFDING TREE OFFLINE PRETRAINING - PONG")
-    print("=" * 60)
-    print("NOTE: This pretains the model on existing data.")
-    print("      Online learning during gameplay will be added in next step.")
+    """Offline pretraining of Hoeffding Tree on existing data."""
+    print("Running offline training for Hoeffding Tree")
 
-    # Load data
-    print("\n[1/5] Loading data...")
+    print("Loading data...")
     X, y = load_training_data_class_balanced(random_state=random_state)
-    print(f"  Total samples: {len(X)}")
-    print(f"  Features: {list(X.columns)}")
-    print(f"  Classes: {sorted(y.unique())}")  
-    print(f"  Class distribution (balanced):\n{y.value_counts()}")
+    
+    vprint(f"  Total samples: {len(X)}")
+    vprint(f"  Features: {list(X.columns)}")
+    vprint(f"  Classes: {sorted(y.unique())}")  
+    vprint(f"  Class distribution (balanced):\n{y.value_counts()}")
 
-    # Split data
-    print(f"\n[2/5] Splitting data (test_size={test_size})...")
     X_train, X_test, y_train, y_test = train_test_split(
         X, y,
         test_size=test_size,
         random_state=random_state,
         stratify=y
     )
-    print(f"  Training samples: {len(X_train)}")
-    print(f"  Test samples: {len(X_test)}")
+    vprint(f"  Training samples: {len(X_train)}")
+    vprint(f"  Test samples: {len(X_test)}")
 
-    # Train model
-    print(f"\n[3/5] Training Hoeffding Tree (online learning)...")
-    print(f"  Hyperparameters:")
-    print(f"    grace_period: {grace_period}")
-    print(f"    delta: {delta}")
-    print(f"    tau: {tau}")
-    print(f"    leaf_prediction: {leaf_prediction}")
+    print(f"Training Hoeffding Tree...")
+    vprint(f"  Hyperparameters:")
+    vprint(f"    grace_period: {grace_period}")
+    vprint(f"    delta: {delta}")
+    vprint(f"    tau: {tau}")
+    vprint(f"    leaf_prediction: {leaf_prediction}")
 
     clf = tree.HoeffdingTreeClassifier(
         grace_period=grace_period,
@@ -58,7 +57,7 @@ def train_hoeffding_tree(
         nominal_attributes=None
     )
 
-    # Train incrementally
+    # We offline train using online training functionality
     train_metric = metrics.Accuracy()
     for idx in range(len(X_train)):
         x_dict = X_train.iloc[idx].to_dict()
@@ -70,14 +69,10 @@ def train_hoeffding_tree(
 
         clf.learn_one(x_dict, y_true)
 
-        if (idx + 1) % 10000 == 0:
-            print(f"    Processed {idx + 1}/{len(X_train)} samples...")
-
     train_acc = train_metric.get()
     print(f"  Progressive validation accuracy: {train_acc:.4f}")
 
-    # Evaluate
-    print(f"\n[4/5] Evaluating model...")
+    print(f"Evaluating model...")
     y_test_pred = []
     for idx in range(len(X_test)):
         x_dict = X_test.iloc[idx].to_dict()
@@ -89,16 +84,15 @@ def train_hoeffding_tree(
     print(f"  Training Accuracy: {train_acc:.4f}")
     print(f"  Test Accuracy: {test_acc:.4f}")
 
-    print("\n  Classification Report (Test Set):")
-    print(classification_report(y_test, y_test_pred))
+    vprint("  Classification Report (Test Set):")
+    vprint(classification_report(y_test, y_test_pred))
 
-    print("\n  Confusion Matrix (Test Set):")
-    print(confusion_matrix(y_test, y_test_pred))
+    vprint("  Confusion Matrix (Test Set):")
+    vprint(confusion_matrix(y_test, y_test_pred))
 
-    # Save model
-    print(f"\n[5/5] Saving model...")
+    print(f"Saving model...")
 
-    models_dir = "models"
+    models_dir = "models/ht"
     os.makedirs(models_dir, exist_ok=True)
     model_path = f"{models_dir}/hoeffding_tree_pong.pkl"
 
@@ -106,7 +100,6 @@ def train_hoeffding_tree(
         pickle.dump(clf, f)
     print(f"  Model saved to: {model_path}")
 
-    # Also save metadata
     metadata = {
         'model_type': 'HoeffdingTreeClassifier',
         'train_accuracy': train_acc,
@@ -128,9 +121,7 @@ def train_hoeffding_tree(
         pickle.dump(metadata, f)
     print(f"  Metadata saved to: {metadata_path}")
 
-    print("\n" + "=" * 60)
-    print("TRAINING COMPLETE!")
-    print("=" * 60)
+    print("Training Finished for Hoeffding Tree\n")
 
     return clf, X_test, y_test, {
         'train_acc': train_acc,
@@ -139,7 +130,7 @@ def train_hoeffding_tree(
 
 
 def main() -> None:
-    clf, X_test, y_test, metrics = train_hoeffding_tree(
+    train_hoeffding_tree(
         grace_period=50, 
         delta=1e-7,
         tau=0.1,

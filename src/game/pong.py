@@ -28,9 +28,8 @@ CENTER_LINE_GAP = 18
 BG_COLOR = (16, 18, 22)
 FG_COLOR = (245, 246, 248)
 
-# Data collection setup
-DATA_DIR = Path("data")
-DATA_DIR.mkdir(exist_ok=True)
+DATA_DIR = "data/dataset"
+os.makedirs(DATA_DIR, exist_ok=True)
 run_number = 0
 frame_id = 0
 
@@ -110,7 +109,7 @@ class GameState:
         # atan2(y, x) -> radians; keep in (-pi, pi]
         self.ball_angle = math.atan2(self.ball_vel.y, self.ball_vel.x)
 
-state = None  # Will be initialized in main()
+state = None
 
 
 def _reset_ball(direction: int = 1) -> None:
@@ -120,18 +119,14 @@ def _reset_ball(direction: int = 1) -> None:
     state.ball_vel.update(BALL_SPEED * direction, 0)
     state.update_angle()
 
-
-
 def _clamp(v: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, v))
 
-
 # Run Loop
 def main(right_ai: PongAIPlayer | None = None, right_mode: str = "human", left_mode: str = "human", max_score: int | None = None, online_trainer = None, learning_mode: bool = False) -> GameState:
-    """Run Pong game. left_mode: 'human'/'pc', right_mode: 'human'/'pc'/'dt'/'ht'/'ct'."""
+    """Run Pong game. left_mode: 'human'/'pc', right_mode: 'human'/'pc'/'dt'/'ht'/'wf'."""
     global state
 
-    # Initialize fresh game state
     state = GameState(
         left_paddle_y=(HEIGHT - PADDLE_H) / 2,
         right_paddle_y=(HEIGHT - PADDLE_H) / 2,
@@ -145,8 +140,7 @@ def main(right_ai: PongAIPlayer | None = None, right_mode: str = "human", left_m
 
     pygame.init()
 
-    # Set caption based on player types
-    mode_labels = {"human": "Q/A", "pc": "PC", "dt": "DT", "ht": "HT", "ct": "CT"}
+    mode_labels = {"human": "Q/A", "pc": "PC", "dt": "DT", "ht": "HT", "wf": "WF"}
     left_label = "Q/A" if left_mode == "human" else "PC"
     right_label = mode_labels.get(right_mode, "AI")
     pygame.display.set_caption(f"Pong ({left_label} vs {right_label})")
@@ -158,10 +152,10 @@ def main(right_ai: PongAIPlayer | None = None, right_mode: str = "human", left_m
     # Data collection setup
     prefix = f"{left_mode}v{right_mode}"
     run_number = 0
-    while (DATA_DIR / f"{prefix}_{run_number:04d}.csv").exists():
+    while (os.path.exists(f"{DATA_DIR}/{prefix}_{run_number:04d}.csv")):
         run_number += 1
 
-    csv_file = open(DATA_DIR / f"{prefix}_{run_number:04d}.csv", "w", newline="")
+    csv_file = open(f"{DATA_DIR}/{prefix}_{run_number:04d}.csv", "w", newline="")
     csv_writer = csv.writer(csv_file)
     csv_writer.writerow(["frame_id", "left_input", "right_input", "left_paddle_y", "right_paddle_y",
                         "ball_x", "ball_y", "ball_angle", "ball_speed"])

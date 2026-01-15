@@ -1,3 +1,4 @@
+import os
 import pickle
 from pathlib import Path
 import pandas as pd
@@ -22,8 +23,9 @@ class PongAIPlayer:
         """Predict next action: 'U', 'D', or 'I'."""
         y_diff = ball_y - (paddle_y + 50)  # 50 is PADDLE_H/2
 
-        # Check model type
+        # Run pred depending on model type
         if hasattr(self.model, 'predict_one'):
+
             # River model: uses predict_one with dictionary input
             features = {
                 'right_paddle_y': paddle_y,
@@ -35,8 +37,8 @@ class PongAIPlayer:
             }
 
             prediction = self.model.predict_one(features)
-
         elif hasattr(self.model, 'forward'):
+
             # Weighted Forest: uses forward with numpy array and returns integer
             features = np.array([paddle_y, ball_x, ball_y, ball_angle, ball_speed, y_diff])
             pred_int = self.model.forward(features)
@@ -46,8 +48,8 @@ class PongAIPlayer:
             reverse_mapping = {v: k for k, v in class_mapping.items()}
 
             prediction = reverse_mapping[pred_int]
-
         else:
+
             # Sklearn model: uses predict with DataFrame input
             features = pd.DataFrame(
                 [[paddle_y, ball_x, ball_y, ball_angle, ball_speed]],
@@ -56,7 +58,6 @@ class PongAIPlayer:
             features['y_diff'] = y_diff
 
             prediction = self.model.predict(features)[0]
-
         return prediction
 
     def get_info(self) -> dict:
@@ -66,53 +67,34 @@ class PongAIPlayer:
         return {'model_path': str(self.model_path)}
 
 
-def load_decision_tree_model(models_dir: str = "models") -> PongAIPlayer:
+def load_decision_tree_model(models_dir: str = "models/dt") -> PongAIPlayer:
     """Load the Decision Tree model."""
-    models_path = Path(models_dir)
-    model_file = models_path / "decision_tree_pong.pkl"
-    metadata_file = models_path / "decision_tree_metadata.pkl"
+    model_file = f"{models_dir}/decision_tree_pong.pkl"
+    metadata_file = f"{models_dir}/decision_tree_metadata.pkl"
 
-    if not model_file.exists():
+    if not os.path.exists(model_file):
         raise FileNotFoundError(f"Decision Tree model not found at {model_file}. ")
 
-    return PongAIPlayer(model_file, metadata_file if metadata_file.exists() else None)
+    return PongAIPlayer(model_file, metadata_file if os.path.exists(metadata_file) else None)
 
 
-def load_hoeffding_tree_model(models_dir: str = "models") -> PongAIPlayer:
+def load_hoeffding_tree_model(models_dir: str = "models/ht") -> PongAIPlayer:
     """Load the Hoeffding Tree model."""
-    models_path = Path(models_dir)
-    model_file = models_path / "hoeffding_tree_pong.pkl"
-    metadata_file = models_path / "hoeffding_tree_metadata.pkl"
+    model_file = f"{models_dir}/hoeffding_tree_pong.pkl"
+    metadata_file = f"{models_dir}/hoeffding_tree_metadata.pkl"
 
-    if not model_file.exists():
+    if not os.path.exists(model_file):
         raise FileNotFoundError(f"Hoeffding Tree model not found at {model_file}. ")
 
-    return PongAIPlayer(model_file, metadata_file if metadata_file.exists() else None)
+    return PongAIPlayer(model_file, metadata_file if os.path.exists(metadata_file) else None)
 
 
-def load_weighted_forest_model(models_dir: str = "models") -> PongAIPlayer:
+def load_weighted_forest_model(models_dir: str = "models/wf") -> PongAIPlayer:
     """Load the Weighted Forest model."""
-    models_path = Path(models_dir)
-    model_file = models_path / "weighted_forest_pong.pkl"
-    metadata_file = models_path / "weighted_forest_metadata.pkl"
+    model_file = f"{models_dir}/weighted_forest_pong.pkl"
+    metadata_file = f"{models_dir}/weighted_forest_metadata.pkl"
 
-    if not model_file.exists():
+    if not os.path.exists(model_file):
         raise FileNotFoundError(f"Weighted Forest model not found at {model_file}. ")
 
-    return PongAIPlayer(model_file, metadata_file if metadata_file.exists() else None)
-
-
-if __name__ == "__main__":
-    try:
-        ai = load_decision_tree_model()
-        print("Model loaded successfully!")
-        print("\nModel info:")
-        for key, value in ai.get_info().items():
-            print(f"  {key}: {value}")
-
-        print("\nTest prediction:")
-        action = ai.predict(250.0, 450.0, 300.0, 0.0, 360)
-        print(f"  Input: paddle_y=250, ball_x=450, ball_y=300, angle=0, speed=360")
-        print(f"  Predicted action: {action}")
-    except FileNotFoundError as e:
-        print(f"Error: {e}")
+    return PongAIPlayer(model_file, metadata_file if os.path.exists(metadata_file) else None)

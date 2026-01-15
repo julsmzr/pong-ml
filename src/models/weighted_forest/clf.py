@@ -173,15 +173,15 @@ class Weighted_Forest:
 
             if cell.get_lifetime() > 150:
                 if cell.get_actiontime() / cell.get_lifetime() < 0.005:
-                    print("Removed Cell because of inactivity", cell.get_actiontime() / cell.get_lifetime())
+                    # print("Removed Cell because of inactivity", cell.get_actiontime() / cell.get_lifetime())
                     continue
                 if cell.get_righttime() / cell.get_actiontime() < 0.2:
-                    print("Removed Cell because of bad decisions")
+                    # print("Removed Cell because of bad decisions")
                     continue
 
                 if cell.get_lifetime() > 1000:
                     if cell.get_righttime() / cell.get_actiontime() < 0.6:
-                        print("Removed Cell because of bad decisions")
+                        # print("Removed Cell because of bad decisions")
                         continue
 
             _new_cells.append(cell)
@@ -197,7 +197,7 @@ class Weighted_Forest:
                         d = self.distance_function(self.cells[idx_a].get_gate_vector(), self.cells[idx_b].get_gate_vector())
                         if d < 2:
                             remove_indexes.append(idx_b)
-                            print(f"Remove Cell {idx_b} because of simiarity")
+                            # print(f"Remove Cell {idx_b} because of simiarity")
             self.cells = [cell for i, cell in enumerate(self.cells) if i not in remove_indexes]
 
             ## Add Cells
