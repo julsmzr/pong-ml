@@ -1,5 +1,4 @@
-from game.pong import main as run_interactive_pong
-from classifier.weighted_forest import Weighted_Forest
+from classifier.weighted_forest import WeightedForest
 from lib.distance_functions import euclidean_distance
 import numpy as np
 from sklearn.datasets import load_iris
@@ -15,7 +14,7 @@ if __name__ == "__main__":
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42, shuffle=True)
 
-    wf = Weighted_Forest(4, 3, distance_function=euclidean_distance)
+    wf = WeightedForest(4, 3, distance_function=euclidean_distance)
     accuracys = wf.fit(X_train,y_train,1000)
     epochs = np.arange(accuracys.shape[0])
 
