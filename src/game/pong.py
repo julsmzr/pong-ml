@@ -150,12 +150,14 @@ def main(right_ai: PongAIPlayer | None = None, right_mode: str = "human", left_m
     font = pygame.font.SysFont(None, 56)
 
     # Data collection setup
-    prefix = f"{left_mode}v{right_mode}"
+    prefix_dir = f"{left_mode}v{right_mode}"
+    if not os.path.exists(f"{DATA_DIR}/{prefix_dir}"):
+        os.mkdir(f"{DATA_DIR}/{prefix_dir}")
     run_number = 0
-    while (os.path.exists(f"{DATA_DIR}/{prefix}_{run_number:04d}.csv")):
+    while (os.path.exists(f"{DATA_DIR}/{prefix_dir}/RUN_{run_number:04d}.csv")):
         run_number += 1
 
-    csv_file = open(f"{DATA_DIR}/{prefix}_{run_number:04d}.csv", "w", newline="")
+    csv_file = open(f"{DATA_DIR}/{prefix_dir}/RUN_{run_number:04d}.csv", "w", newline="")
     csv_writer = csv.writer(csv_file)
     csv_writer.writerow(["frame_id", "left_input", "right_input", "left_paddle_y", "right_paddle_y",
                         "ball_x", "ball_y", "ball_angle", "ball_speed"])

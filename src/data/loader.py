@@ -11,8 +11,8 @@ TARGET_COL = "right_input"
 
 def load_csvs_by_type() -> tuple[pd.DataFrame, pd.DataFrame]:
     """Load all CSVs and separate by game type."""
-    hvh_files = sorted(glob.glob(f"{DATA_DIR}/hvhuman_*.csv"))
-    hvpc_files = sorted(glob.glob(f"{DATA_DIR}/hvpc_*.csv"))
+    hvh_files = sorted(glob.glob(f"{DATA_DIR}/humanvhuman/RUN_*.csv"))
+    hvpc_files = sorted(glob.glob(f"{DATA_DIR}/humanvpc/RUN_*.csv"))
 
     hvh_df = pd.concat([pd.read_csv(f) for f in hvh_files], ignore_index=True) if hvh_files else pd.DataFrame()
     hvpc_df = pd.concat([pd.read_csv(f) for f in hvpc_files], ignore_index=True) if hvpc_files else pd.DataFrame()

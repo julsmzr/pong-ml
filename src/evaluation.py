@@ -56,7 +56,7 @@ def evaluate_all_models(max_score: int = 10) -> dict[str, EvaluationResult]:
     models = {
         'dt': ('Decision Tree', load_decision_tree_model),
         'ht': ('Hoeffding Tree', load_hoeffding_tree_model),
-        'ct': ('Weighted Forest', load_weighted_forest_model)
+        'wf': ('Weighted Forest', load_weighted_forest_model)
     }
 
     results = {}
@@ -81,9 +81,9 @@ def compare_pretrained_vs_online(max_score: int = 10) -> dict[str, dict[str, Eva
 
     print("Comparing pre-trained vs online-trained models")
 
-    results = {'ht': {}, 'ct': {}}
+    results = {'ht': {}, 'wt': {}}
 
-    for model_key in ['ht', 'ct']:
+    for model_key in ['ht', 'wt']:
         model_name = 'Hoeffding Tree' if model_key == 'ht' else 'Weighted Forest'
         pretrained_path = f"{'hoeffding_tree' if model_key == 'ht' else 'weighted_forest'}_pong.pkl"
         metadata_path = f"{'hoeffding_tree' if model_key == 'ht' else 'weighted_forest'}_metadata.pkl"
