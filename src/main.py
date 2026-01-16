@@ -9,11 +9,15 @@ def main(mode: str = "human") -> None:
     mode_registry = {
         "dt": load_decision_tree_model,
         "ht": load_hoeffding_tree_model,
-        "wf": load_weighted_forest_model
+        "wf": load_weighted_forest_model,
+        "human": None,
+        "pc": None,
     }
     
     try:
-        right_ai = mode_registry[mode]()
+        right_ai = mode_registry[mode]
+        if right_ai:
+            right_ai = right_ai()
         print(f"Loaded {mode}")
     except FileNotFoundError as e:
         print(f"Error: {e}")
