@@ -1,2 +1,6 @@
 /data/
+/models/
+
 **__pycache**
+.DS_Store
+.vscode

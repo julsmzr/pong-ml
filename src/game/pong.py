@@ -10,6 +10,9 @@ import pygame
 import csv
 from pathlib import Path
 
+from src.models.model_loader import PongAIPlayer
+from src.training.reward import StateSnapshot
+
 
 WIDTH, HEIGHT = 900, 600
 FPS = 60
@@ -18,46 +21,65 @@ PADDLE_W, PADDLE_H = 12, 100
 PADDLE_SPEED = 420  # px/s
 
 BALL_SIZE = 12
-BALL_SPEED = 360 
-ball_speed_multiplier = 1.0 
+BALL_SPEED = 360
 
 CENTER_LINE_GAP = 18
 
 BG_COLOR = (16, 18, 22)
 FG_COLOR = (245, 246, 248)
 
-# Data collection setup
-DATA_DIR = Path("data")
-DATA_DIR.mkdir(exist_ok=True)
+DATA_DIR = "data/dataset"
+os.makedirs(DATA_DIR, exist_ok=True)
 run_number = 0
 frame_id = 0
 
-def get_player_input(keys) -> tuple[str, str]:
-    left_input = "I"
+def get_left_input(keys) -> str:
+    """Get left player input from keyboard (Q/A keys)."""
     if keys[pygame.K_q]:
-        left_input = "U"
+        return "U"
     elif keys[pygame.K_a]:
-        left_input = "D"
-        
-    right_input = "I" 
-    if keys[pygame.K_UP]:
-        right_input = "U"
-    elif keys[pygame.K_DOWN]:
-        right_input = "D"
-        
-    return left_input, right_input
+        return "D"
+    return "I"
 
-def get_best_player_input(paddle_y, ball_pos_y, threshold=10):
+def get_right_input(keys) -> str:
+    """Get right player input from keyboard (arrow keys)."""
+    if keys[pygame.K_UP]:
+        return "U"
+    elif keys[pygame.K_DOWN]:
+        return "D"
+    return "I"
+
+def get_perfect_ai_input(paddle_y: float, ball_pos_y: float, threshold: float = 10.0) -> str:
+    """Perfect AI that tracks ball position."""
     paddle_center = paddle_y + PADDLE_H / 2
     diff = paddle_center - ball_pos_y
-
     if diff > threshold:
         return "U"
     elif diff < -threshold:
         return "D"
     return "I"
 
-def write_frame_data(csv_writer, frame_id, left_input, right_input):
+def get_model_ai_input(ai_player: PongAIPlayer, paddle_y: float, ball_x: float, ball_y: float, ball_angle: float, ball_speed: float) -> str:
+    """Get input from trained ML model."""
+    try:
+        return ai_player.predict(paddle_y, ball_x, ball_y, ball_angle, ball_speed)
+    except Exception as e:
+        print(f"AI prediction error: {e}")
+        return "I"
+
+def capture_state(paddle_y: float, ball_x: float, ball_y: float, ball_angle: float, ball_speed: float, ball_vel_x: float, paddle_hits: int) -> StateSnapshot:
+    """Capture current game state for learning."""
+    return StateSnapshot(
+        paddle_y=paddle_y,
+        ball_x=ball_x,
+        ball_y=ball_y,
+        ball_angle=ball_angle,
+        ball_speed=ball_speed,
+        ball_moving_towards=(ball_vel_x > 0),
+        paddle_hits=paddle_hits
+    )
+
+def write_frame_data(csv_writer, frame_id: int, left_input: str, right_input: str, ball_speed: float) -> None:
     csv_writer.writerow([
         frame_id,
         left_input,
@@ -67,7 +89,7 @@ def write_frame_data(csv_writer, frame_id, left_input, right_input):
         state.ball_pos.x,
         state.ball_pos.y,
         state.ball_angle,
-        BALL_SPEED
+        ball_speed
     ])
 
 @dataclass
@@ -77,63 +99,72 @@ class GameState:
     ball_pos: pygame.Vector2
     ball_vel: pygame.Vector2
     ball_angle: float  # radians, computed from velocity
+    ball_speed_multiplier: float
     left_score: int
     right_score: int
+    right_paddle_hits: int = 0  # Track hits by right paddle
+    frame_count: int = 0  # Track total frames
 
     def update_angle(self) -> None:
         # atan2(y, x) -> radians; keep in (-pi, pi]
         self.ball_angle = math.atan2(self.ball_vel.y, self.ball_vel.x)
 
-state = GameState(
-    left_paddle_y=(HEIGHT - PADDLE_H) / 2,
-    right_paddle_y=(HEIGHT - PADDLE_H) / 2,
-    ball_pos=pygame.Vector2(WIDTH / 2, HEIGHT / 2),
-    ball_vel=pygame.Vector2(BALL_SPEED, 0),  # starts to the right
-    ball_angle=0.0,
-    left_score=0,
-    right_score=0,
-)
+state = None
 
 
 def _reset_ball(direction: int = 1) -> None:
     """Center the ball and launch horizontally. direction: +1 to right, -1 to left."""
-    global ball_speed_multiplier
-    ball_speed_multiplier = 1.0
+    state.ball_speed_multiplier = 1.0
     state.ball_pos.update(WIDTH / 2, HEIGHT / 2)
     state.ball_vel.update(BALL_SPEED * direction, 0)
     state.update_angle()
 
-
-
 def _clamp(v: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, v))
 
-
 # Run Loop
-def main(
-        single_player: bool = False
-    ) -> None:
-    global ball_speed_multiplier
+def main(right_ai: PongAIPlayer | None = None, right_mode: str = "human", left_mode: str = "human", max_score: int | None = None, online_trainer = None, learning_mode: bool = False) -> GameState:
+    """Run Pong game. left_mode: 'human'/'pc', right_mode: 'human'/'pc'/'dt'/'ht'/'wf'."""
+    global state
+
+    state = GameState(
+        left_paddle_y=(HEIGHT - PADDLE_H) / 2,
+        right_paddle_y=(HEIGHT - PADDLE_H) / 2,
+        ball_pos=pygame.Vector2(WIDTH / 2, HEIGHT / 2),
+        ball_vel=pygame.Vector2(BALL_SPEED, 0),
+        ball_angle=0.0,
+        ball_speed_multiplier=1.0,
+        left_score=0,
+        right_score=0,
+    )
 
     pygame.init()
-    pygame.display.set_caption("Pong (Q/A vs ↑/↓)")
+
+    mode_labels = {"human": "Q/A", "pc": "PC", "dt": "DT", "ht": "HT", "wf": "WF"}
+    left_label = "Q/A" if left_mode == "human" else "PC"
+    right_label = mode_labels.get(right_mode, "AI")
+    pygame.display.set_caption(f"Pong ({left_label} vs {right_label})")
+
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
     clock = pygame.time.Clock()
     font = pygame.font.SysFont(None, 56)
 
-    # Data collection setup - name by enemy type
-    prefix = "hvpc" if single_player else "hvh"
+    # Data collection setup
+    prefix = f"{left_mode}v{right_mode}"
     run_number = 0
-    while (DATA_DIR / f"{prefix}_{run_number:04d}.csv").exists():
+    while (os.path.exists(f"{DATA_DIR}/{prefix}_{run_number:04d}.csv")):
         run_number += 1
 
-    csv_file = open(DATA_DIR / f"{prefix}_{run_number:04d}.csv", "w", newline="")
+    csv_file = open(f"{DATA_DIR}/{prefix}_{run_number:04d}.csv", "w", newline="")
     csv_writer = csv.writer(csv_file)
-    csv_writer.writerow(["frame_id", "left_input", "right_input", "left_paddle_y", "right_paddle_y", 
+    csv_writer.writerow(["frame_id", "left_input", "right_input", "left_paddle_y", "right_paddle_y",
                         "ball_x", "ball_y", "ball_angle", "ball_speed"])
     frame_id = 0
 
     _reset_ball(direction=1)
+
+    prev_state = None
+    prev_action = None
 
     running = True
     while running:
@@ -144,11 +175,35 @@ def main(
             if e.type == pygame.QUIT:
                 running = False
 
+        # Check end condition
+        if max_score and (state.left_score >= max_score or state.right_score >= max_score):
+            running = False
+            break
+
          # Input
         keys = pygame.key.get_pressed()
-        left_input, right_input = get_player_input(keys)
-        if single_player:
-            right_input = get_best_player_input(state.right_paddle_y, state.ball_pos.y)
+        if left_mode == "pc":
+            left_input = get_perfect_ai_input(state.left_paddle_y, state.ball_pos.y)
+        else:
+            left_input = get_left_input(keys)
+
+        # Right input based on mode
+        if right_ai:
+            right_input = get_model_ai_input(right_ai, state.right_paddle_y, state.ball_pos.x, state.ball_pos.y, state.ball_angle, BALL_SPEED * state.ball_speed_multiplier)
+        elif right_mode == "pc":
+            right_input = get_perfect_ai_input(state.right_paddle_y, state.ball_pos.y)
+        else:
+            right_input = get_right_input(keys)
+
+        if learning_mode and online_trainer and right_ai:
+            current_state = capture_state(state.right_paddle_y, state.ball_pos.x, state.ball_pos.y, state.ball_angle, BALL_SPEED * state.ball_speed_multiplier, state.ball_vel.x, state.right_paddle_hits)
+            if prev_state is not None and prev_action is not None:
+                online_trainer.learn(prev_state, prev_action, current_state)
+                if frame_id % 100 == 0 and frame_id > 0:
+                    metrics = online_trainer.get_metrics()
+                    print(f"[Frame {frame_id}] Metrics: {metrics}")
+            prev_state = current_state
+            prev_action = right_input
         
         # Use the input for movement
         if left_input == "U":
@@ -182,29 +237,24 @@ def main(
 
         # Left paddle collision
         if ball_rect.colliderect(left_rect) and state.ball_vel.x < 0:
+            state.ball_speed_multiplier *= 1.1
             hit_rel = (state.ball_pos.y + BALL_SIZE / 2) - (left_rect.centery)
             norm = _clamp(hit_rel / (PADDLE_H / 2), -1.0, 1.0)  # -1 top, +1 bottom
             angle = norm * (math.pi / 3)  # spread up to ±60°
-
-            # Rebuild velocity at current speed, heading to the right
-            state.ball_vel.from_polar((BALL_SPEED * ball_speed_multiplier, math.degrees(angle)))
+            state.ball_vel.from_polar((BALL_SPEED * state.ball_speed_multiplier, math.degrees(angle)))
             state.ball_vel.x = abs(state.ball_vel.x)  # ensure right
-
-            # Nudge out of the paddle to avoid sticking
             state.ball_pos.x = left_rect.right
-            ball_speed_multiplier *= 1.1
 
         # Right paddle collision
         if ball_rect.colliderect(right_rect) and state.ball_vel.x > 0:
+            state.ball_speed_multiplier *= 1.1
+            state.right_paddle_hits += 1
             hit_rel = (state.ball_pos.y + BALL_SIZE / 2) - (right_rect.centery)
             norm = _clamp(hit_rel / (PADDLE_H / 2), -1.0, 1.0)
             angle = norm * (math.pi / 3)
-
-            state.ball_vel.from_polar((BALL_SPEED * ball_speed_multiplier, math.degrees(angle)))
+            state.ball_vel.from_polar((BALL_SPEED * state.ball_speed_multiplier, math.degrees(angle)))
             state.ball_vel.x = -abs(state.ball_vel.x)  # ensure left
-
-            state.ball_pos.x = right_rect.left - BALL_SIZE
-            ball_speed_multiplier *= 1.1 
+            state.ball_pos.x = right_rect.left - BALL_SIZE 
 
         # Scoring
         if state.ball_pos.x + BALL_SIZE < 0:
@@ -213,9 +263,6 @@ def main(
         elif state.ball_pos.x > WIDTH:
             state.left_score += 1
             _reset_ball(direction=-1)
-
-        if state.ball_vel.length_squared() != 0:
-            state.ball_vel.scale_to_length(BALL_SPEED * ball_speed_multiplier)
 
         state.update_angle()
 
@@ -242,13 +289,16 @@ def main(
         screen.blit(rs, (WIDTH * 0.75 - rs.get_width() / 2, 24))
 
         # Write frame data
-        write_frame_data(csv_writer, frame_id, left_input, right_input)
+        write_frame_data(csv_writer, frame_id, left_input, right_input, BALL_SPEED * state.ball_speed_multiplier)
         frame_id += 1
+        state.frame_count += 1
 
         pygame.display.flip()
 
     csv_file.close()
     pygame.quit()
+
+    return state
 
 
 if __name__ == "__main__":

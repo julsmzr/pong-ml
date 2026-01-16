@@ -12,5 +12,3 @@ class BaseClassifier(ABC):
     @abstractmethod
     def predict(self, X):
         pass
-
-    

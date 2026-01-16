@@ -1,11 +1,15 @@
 import numpy as np
 import random
-from classifier.base_classifier import BaseClassifier
+from src.models.base_model.base_clf import BaseClassifier
+
+
+def euclidean_distance(v1: np.ndarray, v2: np.ndarray):
+    return np.sqrt(np.sum(np.square(v1 - v2)))
 
 class WeightedForest(BaseClassifier):
     class Cell:
         class Gate:
-            def __init__(self, used_features, distance_function, learning_rate=0.01, boundery=2.5, initializer_low=-10, initializer_high=10, random_seed=42):
+            def __init__(self, used_features, distance_function=euclidean_distance, learning_rate=0.01, boundery=2.5, initializer_low=-10, initializer_high=10, random_seed=42):
                 self.boundery = boundery
                 self.used_features = used_features
                 self.distance_function = distance_function
@@ -178,15 +182,15 @@ class WeightedForest(BaseClassifier):
 
             if cell.get_lifetime() > 150:
                 if cell.get_actiontime() / cell.get_lifetime() < 0.005:
-                    print("Removed Cell because of inactivity", cell.get_actiontime() / cell.get_lifetime())
+                    # print("Removed Cell because of inactivity", cell.get_actiontime() / cell.get_lifetime())
                     continue
                 if cell.get_righttime() / cell.get_actiontime() < 0.2:
-                    print("Removed Cell because of bad decisions")
+                    # print("Removed Cell because of bad decisions")
                     continue
 
                 if cell.get_lifetime() > 1000:
                     if cell.get_righttime() / cell.get_actiontime() < self.accuracy_goal:
-                        print("Removed Cell because of bad decisions")
+                        # print("Removed Cell because of bad decisions")
                         continue
 
             _new_cells.append(cell)
@@ -202,7 +206,7 @@ class WeightedForest(BaseClassifier):
                         d = self.distance_function(self.cells[idx_a].get_gate_vector(), self.cells[idx_b].get_gate_vector())
                         if d < 2:
                             remove_indexes.append(idx_b)
-                            print(f"Remove Cell {idx_b} because of simiarity")
+                            # print(f"Remove Cell {idx_b} because of simiarity")
             self.cells = [cell for i, cell in enumerate(self.cells) if i not in remove_indexes]
 
             ## Add Cells
