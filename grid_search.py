@@ -20,8 +20,8 @@ def perform_grid_search(random_state=42):
     scaler = {'feature_min': feature_min, 'feature_max': feature_max}
 
     # Definiere die Parameter
-    num_cells = np.arange(5, 11, 2)  # Werte von 1 bis 10, 2er Schritte
-    similarity_threshold = np.arange(0.5, 2.6, 0.25)  # Werte von 0.5 bis 2.5, 0.25er Schritte
+    num_cells = np.arange(4, 11, 3)  # Werte von 1 bis 10, 2er Schritte
+    similarity_threshold = np.arange(1.0, 2.1, 0.25)  # Werte von 0.5 bis 2.5, 0.25er Schritte
     epochs = np.arange(3, 6, 2)  # Werte von 1 bis 5, 2er Schritte
 
     # Erstelle ein Gitter für die Parameter
@@ -70,5 +70,8 @@ def perform_grid_search(random_state=42):
 
         print(f"Test {idx+1}: Survival: {episode_metrics['survival_seconds']:.2f}s, Hits: {episode_metrics['hits']}")
 
+def test():
+    print(np.load("data/hyperparameter_tuning_results.npy"))
+
 if __name__ == "__main__":
-    perform_grid_search()
+    test()
