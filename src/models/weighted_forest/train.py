@@ -24,7 +24,9 @@ def train_weighted_forest(
     random_state: int = 42,
     test_size: float = 0.1,
     initializer_low: float = 0,
-    initializer_high: float = 1
+    initializer_high: float = 1,
+    num_start_cells: int = 4,
+    similarity_threshold: float = 2.0,
 ) -> tuple[WeightedForest, pd.DataFrame, pd.Series, dict]:
     """Train a Weighted Forest classifier on Pong data."""
     print("Running offline training for Weighted Forest")
@@ -73,7 +75,9 @@ def train_weighted_forest(
         accuracy_goal=accuracy_goal,
         initializer_low=initializer_low,
         initializer_high=initializer_high,
-        random_seed=random_state
+        random_seed=random_state,
+        num_start_cells=num_start_cells,
+        similarity_threshold=similarity_threshold
     )
 
     epoch_accuracies = clf.fit(X_train, y_train, epochs=epochs)
@@ -155,15 +159,27 @@ def train_weighted_forest(
     }
 
 
-def main() -> None:
+def main(
+    learning_decay: float = 0.95,
+    accuracy_goal: float = 0.65,
+    epochs: int = 5,
+    random_state: int = 42,
+    test_size: float = 0.1,
+    initializer_low: float = 0,
+    initializer_high: float = 1,
+    num_start_cells: int = 4,
+    similarity_threshold: float = 2.0
+) -> None:
     train_weighted_forest(
-        learning_decay=0.95,
-        accuracy_goal=0.65,
-        epochs=5,
-        random_state=42,
-        test_size=0.1,
-        initializer_low=0,
-        initializer_high=1
+        learning_decay=learning_decay,
+        accuracy_goal=accuracy_goal,
+        epochs=epochs,
+        random_state=random_state,
+        test_size=test_size,
+        initializer_low=initializer_low,
+        initializer_high=initializer_high,
+        num_start_cells=num_start_cells,
+        similarity_threshold=similarity_threshold,
     )
 
 

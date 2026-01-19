@@ -168,7 +168,7 @@ def train_weighted_forest_online(
 
         final_state = run_pong_game(
             right_ai=ai_player,
-            right_mode='ct',
+            right_mode='wf',
             left_mode='pc',
             max_score=max_score_per_episode,
             online_trainer=trainer,
