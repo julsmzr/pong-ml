@@ -9,7 +9,7 @@ def euclidean_distance(v1: np.ndarray, v2: np.ndarray):
 class WeightedForest(BaseClassifier):
     class Cell:
         class Gate:
-            def __init__(self, used_features, distance_function=euclidean_distance, learning_rate=0.01, boundery=2.5, initializer_low=-10, initializer_high=10, random_seed=42):
+            def __init__(self, used_features, distance_function=euclidean_distance, learning_rate=0.01, boundery=0.5, initializer_low=0, initializer_high=1, random_seed=42):
                 self.boundery = boundery
                 self.used_features = used_features
                 self.distance_function = distance_function
@@ -44,7 +44,7 @@ class WeightedForest(BaseClassifier):
 
                 
         class Decision:
-            def __init__(self, used_features, num_classes, distance_function, learning_rate=0.05, initializer_low=-10, initializer_high=10, random_seed=42):
+            def __init__(self, used_features, num_classes, distance_function, learning_rate=0.05, initializer_low=0, initializer_high=1, random_seed=42):
                 self.used_features = used_features
                 self.distance_function = distance_function
                 self.learning_rate = learning_rate
@@ -82,7 +82,7 @@ class WeightedForest(BaseClassifier):
 
                 self.saved_features = []
 
-        def __init__(self, num_features, num_classes, distance_function, learning_decay=0.9, initializer_low=-10, initializer_high=10, random_seed=42):
+        def __init__(self, num_features, num_classes, distance_function, learning_decay=0.9, initializer_low=0, initializer_high=1, random_seed=42):
             self.num_features = num_features
             self.num_classes = num_classes
             self.learning_decay = learning_decay
@@ -153,8 +153,9 @@ class WeightedForest(BaseClassifier):
         self.random_seed = random_seed
         random.seed(self.random_seed)
         self.cells = []
-        for i in range(4):
-            self.add_cell(random_seed=self.random_seed+i)
+        self._cell_counter = 0
+        for _ in range(4):
+            self.add_cell()
 
         self._record = [0,0]    ## Total, Right
 
@@ -166,7 +167,10 @@ class WeightedForest(BaseClassifier):
         for i, cell in enumerate(self.cells):
             pred = cell.forward(features)
             if pred is not None:
-                predictions.append(pred[1]) 
+                predictions.append(pred[1])
+
+        if not predictions:
+            return np.random.randint(0, self.num_classes)
 
         prediction = np.mean(np.array(predictions), axis=0)
         return np.argmin(prediction)
@@ -209,8 +213,7 @@ class WeightedForest(BaseClassifier):
                             # print(f"Remove Cell {idx_b} because of simiarity")
             self.cells = [cell for i, cell in enumerate(self.cells) if i not in remove_indexes]
 
-            ## Add Cells
-            self.add_cell(random_seed=self.random_seed*len(self.cells))
+            self.add_cell()
             self._record[0] = 0
             self._record[1] = 0
 
@@ -227,7 +230,7 @@ class WeightedForest(BaseClassifier):
                     correct += 1
 
             accurays[e] = correct/counter
-            print(f"{idx_epoch+1} Num cells: {len(self.cells)}")
+            # print(f"{idx_epoch+1} Num cells: {len(self.cells)}")
 
         return(accurays)
     
@@ -237,5 +240,14 @@ class WeightedForest(BaseClassifier):
             predictions[idx] = self.forward(X[idx])
         return predictions
 
-    def add_cell(self, random_seed=42):
-        self.cells.append(WeightedForest.Cell(self.num_features, self.num_classes, distance_function=self.distance_function, learning_decay=self.learning_decay, initializer_low=self.initializer_low, initializer_high=self.initializer_high, random_seed=random_seed))
+    def add_cell(self):
+        seed = self.random_seed * 1000 + self._cell_counter * 97
+        self._cell_counter += 1
+        self.cells.append(WeightedForest.Cell(
+            self.num_features, self.num_classes,
+            distance_function=self.distance_function,
+            learning_decay=self.learning_decay,
+            initializer_low=self.initializer_low,
+            initializer_high=self.initializer_high,
+            random_seed=seed
+        ))
