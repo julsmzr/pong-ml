@@ -82,7 +82,7 @@ class WeightedForest(BaseClassifier):
 
                 self.saved_features = []
 
-        def __init__(self, num_features, num_classes, distance_function, learning_decay=0.9, initializer_low=0, initializer_high=1, random_seed=42):
+        def __init__(self, num_features, num_classes, distance_function, learning_decay=0.95, initializer_low=0, initializer_high=1, random_seed=42):
             self.num_features = num_features
             self.num_classes = num_classes
             self.learning_decay = learning_decay
@@ -139,7 +139,7 @@ class WeightedForest(BaseClassifier):
         def get_gate_used_features(self):
             return self.gate.used_features.copy()
 
-    def __init__(self, num_features, num_classes, distance_function, learning_decay=0.9, accuracy_goal=0.8, initializer_low=0, initializer_high=10, random_seed=42, num_start_cells=4, similarity_threshold=2):
+    def __init__(self, num_features, num_classes, distance_function, learning_decay=0.95, accuracy_goal=0.65, initializer_low=0, initializer_high=1, random_seed=42, num_start_cells=7, similarity_threshold=1.25):
         if num_features < 2 or num_classes <2:
             raise Exception("Classifier needs at least two features and two classes.")
 

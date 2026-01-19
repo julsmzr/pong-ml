@@ -162,13 +162,13 @@ def train_weighted_forest(
 def main(
     learning_decay: float = 0.95,
     accuracy_goal: float = 0.65,
-    epochs: int = 5,
+    epochs: int = 3,
     random_state: int = 42,
     test_size: float = 0.1,
     initializer_low: float = 0,
     initializer_high: float = 1,
-    num_start_cells: int = 4,
-    similarity_threshold: float = 2.0
+    num_start_cells: int = 7,
+    similarity_threshold: float = 1.25
 ) -> None:
     train_weighted_forest(
         learning_decay=learning_decay,

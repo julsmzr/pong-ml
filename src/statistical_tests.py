@@ -47,7 +47,7 @@ def hommel_correction(pvalues: list[float], alpha: float = 0.05) -> list[float]:
 
 
 def run_rskf(train_eval_fn, models: dict, X, y, n_repeats: int = 10, n_splits: int = 5, random_state: int = 42) -> dict:
-    """Run 5x2 cross-validation and statistical tests."""
+    """Run cross-validation and statistical tests."""
     from sklearn.model_selection import StratifiedKFold
 
     results = {name: [] for name in models.keys()}
