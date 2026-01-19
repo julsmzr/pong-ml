@@ -81,9 +81,9 @@ def compare_pretrained_vs_online(max_score: int = 10) -> dict[str, dict[str, Eva
 
     print("Comparing pre-trained vs online-trained models")
 
-    results = {'ht': {}, 'wt': {}}
+    results = {'ht': {}, 'wf': {}}
 
-    for model_key in ['ht', 'wt']:
+    for model_key in ['ht', 'wf']:
         model_name = 'Hoeffding Tree' if model_key == 'ht' else 'Weighted Forest'
         pretrained_path = f"{'hoeffding_tree' if model_key == 'ht' else 'weighted_forest'}_pong.pkl"
         metadata_path = f"{'hoeffding_tree' if model_key == 'ht' else 'weighted_forest'}_metadata.pkl"
@@ -91,7 +91,7 @@ def compare_pretrained_vs_online(max_score: int = 10) -> dict[str, dict[str, Eva
 
         print(f"\n{model_name}:")
 
-        models_dir = f"models/{"ht" if model_key == 'ht' else "wf"}"
+        models_dir = f"models/{model_key}"
 
         try:
             pretrained_model = f"{models_dir}/{pretrained_path}"
