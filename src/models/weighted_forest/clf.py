@@ -139,7 +139,7 @@ class WeightedForest(BaseClassifier):
         def get_gate_used_features(self):
             return self.gate.used_features.copy()
 
-    def __init__(self, num_features, num_classes, distance_function, learning_decay=0.9, accuracy_goal=0.8, initializer_low=0, initializer_high=10, random_seed=42):
+    def __init__(self, num_features, num_classes, distance_function, learning_decay=0.9, accuracy_goal=0.8, initializer_low=0, initializer_high=10, random_seed=42, num_start_cells=4, similarity_threshold=2):
         if num_features < 2 or num_classes <2:
             raise Exception("Classifier needs at least two features and two classes.")
 
@@ -151,10 +151,11 @@ class WeightedForest(BaseClassifier):
         self.initializer_low = initializer_low
         self.initializer_high = initializer_high
         self.random_seed = random_seed
+        self.similarity_threshold = similarity_threshold
         random.seed(self.random_seed)
         self.cells = []
         self._cell_counter = 0
-        for _ in range(4):
+        for _ in range(num_start_cells):
             self.add_cell()
 
         self._record = [0,0]    ## Total, Right
@@ -208,7 +209,7 @@ class WeightedForest(BaseClassifier):
                 for idx_b in range(idx_a+1, len(self.cells)):
                     if np.array_equal(self.cells[idx_a].get_gate_used_features(), self.cells[idx_b].get_gate_used_features()):
                         d = self.distance_function(self.cells[idx_a].get_gate_vector(), self.cells[idx_b].get_gate_vector())
-                        if d < 2:
+                        if d < self.similarity_threshold:
                             remove_indexes.append(idx_b)
                             # print(f"Remove Cell {idx_b} because of simiarity")
             self.cells = [cell for i, cell in enumerate(self.cells) if i not in remove_indexes]

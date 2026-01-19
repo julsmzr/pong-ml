@@ -190,7 +190,7 @@ class WeightedForestOnlineTrainer(OnlineTrainer):
         reward = calculate_reward(prev_state, action, new_state)
 
         right_decision = reward > 0.0
-        print("right decision!", right_decision)
+        # print("right decision!", right_decision)
         self.model.backward(right_decision)
 
         if right_decision:
