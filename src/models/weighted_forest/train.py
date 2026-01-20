@@ -167,8 +167,8 @@ def main(
     test_size: float = 0.1,
     initializer_low: float = 0,
     initializer_high: float = 1,
-    num_start_cells: int = 7,
-    similarity_threshold: float = 1.25
+    num_start_cells: int = 3,
+    similarity_threshold: float = 1.5
 ) -> None:
     train_weighted_forest(
         learning_decay=learning_decay,

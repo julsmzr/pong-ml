@@ -88,15 +88,6 @@ def calculate_reward(prev_state: StateSnapshot, action: str, new_state: StateSna
     return reward
 
 
-def calculate_sparse_reward(prev_state: StateSnapshot, new_state: StateSnapshot, ball_missed: bool) -> float:
-    """Calculate sparse reward (only hits and misses)."""
-    if new_state.paddle_hits > prev_state.paddle_hits:
-        return 1.0
-    elif ball_missed:
-        return -1.0
-    return 0.0
-
-
 def generate_label_from_reward(paddle_y: float, ball_y: float, reward: float, paddle_h: int = 100) -> str:
     """Convert reward signal to action label for supervised learning."""
     if reward > 0.5:
@@ -107,24 +98,4 @@ def generate_label_from_reward(paddle_y: float, ball_y: float, reward: float, pa
         elif diff > 10:
             return "D"
         return "I"
-    return "I"
-
-
-def generate_label_from_target(paddle_y: float, ball_x: float, ball_y: float,
-                                ball_angle: float, ball_moving_towards: bool,
-                                paddle_h: int = 100, threshold: float = 10.0) -> str:
-    """Generate action label based on predicted ball target position."""
-    paddle_center = paddle_y + paddle_h / 2
-
-    if ball_moving_towards:
-        target_y = predict_ball_target_y(ball_x, ball_y, ball_angle)
-    else:
-        target_y = ball_y
-
-    diff = target_y - paddle_center
-
-    if diff < -threshold:
-        return "U"
-    elif diff > threshold:
-        return "D"
     return "I"

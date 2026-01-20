@@ -54,53 +54,6 @@ class OnlineTrainer(ABC):
             pickle.dump(self.model, f)
 
 
-class DecisionOnlineTrainer(OnlineTrainer):
-    """Container for Decision Tree 'Trainer'."""
-
-    def __init__(self, model) -> None:
-        super().__init__(model, 'decision_tree')
-        self.metrics['progressive_accuracy'] = 0.0
-        self._correct_predictions = 0
-        self._total_predictions = 0
-
-    def _build_features(self, paddle_y: float, ball_x: float, ball_y: float, ball_angle: float, ball_speed: float) -> np.ndarray:
-        """Build feature vector."""
-        y_diff = ball_y - (paddle_y + 50)
-        features = np.array([paddle_y, ball_x, ball_y, ball_angle, ball_speed, y_diff])
-        features = features.reshape(1,-1)
-
-        return features
-
-    def predict(self, paddle_y: float, ball_x: float, ball_y: float, ball_angle: float, ball_speed: float) -> str:
-        """Predict action."""
-
-        features = self._build_features(paddle_y, ball_x, ball_y, ball_angle, ball_speed)
-        return self.model.predict(features)
-
-    def learn(self, prev_state: StateSnapshot, action: str, new_state: StateSnapshot) -> None:
-        """Save performance metrics."""
-        reward = calculate_reward(prev_state, action, new_state)
-
-        label = generate_label_from_reward(new_state.paddle_y, new_state.ball_y, reward)
-
-        features = self._build_features(
-            new_state.paddle_y,
-            new_state.ball_x,
-            new_state.ball_y,
-            new_state.ball_angle,
-            new_state.ball_speed
-        )
-
-        pred = self.model.predict(features)
-
-        if pred == label:
-            self._correct_predictions += 1
-        self._total_predictions += 1
-
-        if self._total_predictions > 0:
-            self.metrics['progressive_accuracy'] = self._correct_predictions / self._total_predictions
-
-
 class HoeffdingOnlineTrainer(OnlineTrainer):
     """Online trainer for Hoeffding Tree using River."""
 
