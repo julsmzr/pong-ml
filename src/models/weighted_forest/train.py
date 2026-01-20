@@ -23,8 +23,6 @@ def train_weighted_forest(
     epochs: int = 3,
     random_state: int = 42,
     test_size: float = 0.1,
-    initializer_low: float = 0,
-    initializer_high: float = 1,
     num_start_cells: int = 4,
     similarity_threshold: float = 2.0,
 ) -> tuple[WeightedForest, pd.DataFrame, pd.Series, dict]:
@@ -73,8 +71,6 @@ def train_weighted_forest(
         distance_function=euclidean_distance,
         learning_decay=learning_decay,
         accuracy_goal=accuracy_goal,
-        initializer_low=initializer_low,
-        initializer_high=initializer_high,
         random_seed=random_state,
         num_start_cells=num_start_cells,
         similarity_threshold=similarity_threshold
@@ -130,8 +126,6 @@ def train_weighted_forest(
             'accuracy_goal': accuracy_goal,
             'epochs': epochs,
             'random_state': random_state,
-            'initializer_low': initializer_low,
-            'initializer_high': initializer_high
         },
         'features': feature_columns,
         'target': TARGET_COL,
@@ -165,8 +159,6 @@ def main(
     epochs: int = 3,
     random_state: int = 42,
     test_size: float = 0.1,
-    initializer_low: float = 0,
-    initializer_high: float = 1,
     num_start_cells: int = 3,
     similarity_threshold: float = 1.5
 ) -> None:
@@ -176,8 +168,6 @@ def main(
         epochs=epochs,
         random_state=random_state,
         test_size=test_size,
-        initializer_low=initializer_low,
-        initializer_high=initializer_high,
         num_start_cells=num_start_cells,
         similarity_threshold=similarity_threshold,
     )
