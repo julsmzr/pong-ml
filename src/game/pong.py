@@ -61,11 +61,7 @@ def get_perfect_ai_input(paddle_y: float, ball_pos_y: float, threshold: float = 
 
 def get_model_ai_input(ai_player: PongAIPlayer, paddle_y: float, ball_x: float, ball_y: float, ball_angle: float, ball_speed: float) -> str:
     """Get input from trained ML model."""
-    try:
-        return ai_player.predict(paddle_y, ball_x, ball_y, ball_angle, ball_speed)
-    except Exception as e:
-        print(f"AI prediction error: {e}")
-        return "I"
+    return ai_player.predict(paddle_y, ball_x, ball_y, ball_angle, ball_speed)
 
 def capture_state(paddle_y: float, ball_x: float, ball_y: float, ball_angle: float, ball_speed: float, ball_vel_x: float, paddle_hits: int) -> StateSnapshot:
     """Capture current game state for learning."""
@@ -201,7 +197,7 @@ def main(right_ai: PongAIPlayer | None = None, right_mode: str = "human", left_m
             current_state = capture_state(state.right_paddle_y, state.ball_pos.x, state.ball_pos.y, state.ball_angle, BALL_SPEED * state.ball_speed_multiplier, state.ball_vel.x, state.right_paddle_hits)
             if prev_state is not None and prev_action is not None:
                 online_trainer.learn(prev_state, prev_action, current_state)
-                if frame_id % 100 == 0 and frame_id > 0:
+                if frame_id % 1000 == 0 and frame_id > 0:
                     metrics = online_trainer.get_metrics()
                     print(f"[Frame {frame_id}] Metrics: {metrics}")
             prev_state = current_state

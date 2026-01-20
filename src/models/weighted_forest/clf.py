@@ -9,14 +9,17 @@ def euclidean_distance(v1: np.ndarray, v2: np.ndarray):
 class WeightedForest(BaseClassifier):
     class Cell:
         class Gate:
-            def __init__(self, used_features, distance_function=euclidean_distance, learning_rate=0.01, boundery=0.5, initializer_low=0, initializer_high=1, random_seed=42):
+            def __init__(self, used_features, distance_function=euclidean_distance, learning_rate=0.001, boundery=0.55, random_seed=42, init_low=0.0, init_high=1.0, start_gate_vector=None):
                 self.boundery = boundery
                 self.used_features = used_features
                 self.distance_function = distance_function
                 self.learning_rate = learning_rate
 
                 np.random.seed(random_seed+1)
-                self.gate_vector = np.random.uniform(initializer_low, initializer_high, size=(self.used_features.shape[0]))
+                if start_gate_vector is not None:
+                    self.gate_vector = start_gate_vector[used_features]
+                else:
+                    self.gate_vector = np.random.uniform(init_low, init_high, size=(self.used_features.shape[0]))
 
                 self.saved_features = []
 
@@ -40,17 +43,20 @@ class WeightedForest(BaseClassifier):
                 else:
                     self.gate_vector = self.gate_vector - self.learning_rate * change_vector
 
+                ## keep gate vector between 0 and 1
+                self.gate_vector = np.maximum(np.zeros(shape=self.gate_vector.shape), np.minimum(np.ones(shape=self.gate_vector.shape), self.gate_vector))
+
                 self.saved_features = []
 
                 
         class Decision:
-            def __init__(self, used_features, num_classes, distance_function, learning_rate=0.05, initializer_low=0, initializer_high=1, random_seed=42):
+            def __init__(self, used_features, num_classes, distance_function, learning_rate=0.05, random_seed=42):
                 self.used_features = used_features
                 self.distance_function = distance_function
                 self.learning_rate = learning_rate
 
                 np.random.seed(random_seed+2)
-                self.decision_vector = np.random.uniform(initializer_low, initializer_high, size=(num_classes, self.used_features.shape[0]))
+                self.decision_vector = np.random.uniform(0.0, 1.0, size=(num_classes, self.used_features.shape[0]))
 
                 self.saved_features = []
 
@@ -82,7 +88,7 @@ class WeightedForest(BaseClassifier):
 
                 self.saved_features = []
 
-        def __init__(self, num_features, num_classes, distance_function, learning_decay=0.95, initializer_low=0, initializer_high=1, random_seed=42):
+        def __init__(self, num_features, num_classes, distance_function, learning_decay=0.95, random_seed=42, start_gate_vector=None, gate_boundery=0.75):
             self.num_features = num_features
             self.num_classes = num_classes
             self.learning_decay = learning_decay
@@ -92,8 +98,8 @@ class WeightedForest(BaseClassifier):
             np.random.shuffle(split)
             gate_vector_size = random.randint(1,self.num_features-1)
 
-            self.gate = WeightedForest.Cell.Gate(used_features=split[:gate_vector_size], distance_function=distance_function, initializer_low=initializer_low, initializer_high=initializer_high)
-            self.decision = WeightedForest.Cell.Decision(used_features=split[gate_vector_size:], num_classes=self.num_classes, distance_function=distance_function, initializer_low=initializer_low, initializer_high=initializer_high)
+            self.gate = WeightedForest.Cell.Gate(used_features=split[:gate_vector_size], distance_function=distance_function, start_gate_vector=start_gate_vector, boundery=gate_boundery)
+            self.decision = WeightedForest.Cell.Decision(used_features=split[gate_vector_size:], num_classes=self.num_classes, distance_function=distance_function)
 
             self.made_decision = False ## Was once in the forward paths a decision taken
 
@@ -139,7 +145,7 @@ class WeightedForest(BaseClassifier):
         def get_gate_used_features(self):
             return self.gate.used_features.copy()
 
-    def __init__(self, num_features, num_classes, distance_function, learning_decay=0.95, accuracy_goal=0.65, initializer_low=0, initializer_high=1, random_seed=42, num_start_cells=7, similarity_threshold=1.25):
+    def __init__(self, num_features, num_classes, distance_function, learning_decay=0.95, accuracy_goal=0.7, gate_boundery=0.5, random_seed=42, num_start_cells=7, similarity_threshold=1.25):
         if num_features < 2 or num_classes <2:
             raise Exception("Classifier needs at least two features and two classes.")
 
@@ -148,10 +154,10 @@ class WeightedForest(BaseClassifier):
         self.distance_function = distance_function
         self.learning_decay = learning_decay
         self.accuracy_goal = accuracy_goal
-        self.initializer_low = initializer_low
-        self.initializer_high = initializer_high
         self.random_seed = random_seed
         self.similarity_threshold = similarity_threshold
+        self.scale_values = np.full(shape=(num_features,2), fill_value=0.5)
+        self.gate_boundery = gate_boundery
         random.seed(self.random_seed)
         self.cells = []
         self._cell_counter = 0
@@ -163,14 +169,33 @@ class WeightedForest(BaseClassifier):
     def forward(self, features):
         if type(features) != np.ndarray:
             raise Exception("Only Numpy arrays excepted.")
+        
+        features = self.scale(features)
 
         predictions = []
+        active_cells = []
         for i, cell in enumerate(self.cells):
             pred = cell.forward(features)
+            print(cell.gate.gate_vector)
             if pred is not None:
                 predictions.append(pred[1])
+                active_cells.append(i)
+
+        num_active = len(predictions)
+        print("Num active", num_active)
+        if num_active == 0:
+            for cell in self.cells:
+                cell.gate.boundery += 0.0005
+            print("Increase")
+        elif num_active > min(3, 0.3*self._cell_counter):
+            for i in active_cells:
+                self.cells[i].gate.boundery -= 0.01
+            print("Decrease")
 
         if not predictions:
+            print("Warning: Random decision")
+            if self._cell_counter < 50:
+                self.add_cell(start_gate_vector=features)
             return np.random.randint(0, self.num_classes)
 
         prediction = np.mean(np.array(predictions), axis=0)
@@ -186,16 +211,16 @@ class WeightedForest(BaseClassifier):
             cell.backward(right_decision=right_decision)
 
             if cell.get_lifetime() > 150:
-                if cell.get_actiontime() / cell.get_lifetime() < 0.005:
-                    # print("Removed Cell because of inactivity", cell.get_actiontime() / cell.get_lifetime())
+                if cell.get_actiontime() / cell.get_lifetime() < 0.001:
+                    print("Removed Cell because of inactivity", cell.get_actiontime() / cell.get_lifetime())
                     continue
-                if cell.get_righttime() / cell.get_actiontime() < 0.2:
-                    # print("Removed Cell because of bad decisions")
+                if cell.get_righttime() / cell.get_actiontime() < 0.35:
+                    print("Removed Cell because of bad decisions")
                     continue
 
                 if cell.get_lifetime() > 1000:
                     if cell.get_righttime() / cell.get_actiontime() < self.accuracy_goal:
-                        # print("Removed Cell because of bad decisions")
+                        print("Removed Cell because of bad decisions")
                         continue
 
             _new_cells.append(cell)
@@ -205,16 +230,18 @@ class WeightedForest(BaseClassifier):
 
             ## Remove similar cells
             remove_indexes = []
+            tmp_similarity_threshold = self.similarity_threshold * (1.05 ** self._cell_counter)
             for idx_a in range(len(self.cells)):
                 for idx_b in range(idx_a+1, len(self.cells)):
                     if np.array_equal(self.cells[idx_a].get_gate_used_features(), self.cells[idx_b].get_gate_used_features()):
                         d = self.distance_function(self.cells[idx_a].get_gate_vector(), self.cells[idx_b].get_gate_vector())
-                        if d < self.similarity_threshold:
+                        if d < tmp_similarity_threshold:
                             remove_indexes.append(idx_b)
-                            # print(f"Remove Cell {idx_b} because of simiarity")
+                            print(f"Remove Cell {idx_b} because of simiarity")
             self.cells = [cell for i, cell in enumerate(self.cells) if i not in remove_indexes]
 
-            self.add_cell()
+            ##if self._cell_counter < 50:
+            ##    self.add_cell()
             self._record[0] = 0
             self._record[1] = 0
 
@@ -240,15 +267,26 @@ class WeightedForest(BaseClassifier):
         for idx in range(X.shape[0]):
             predictions[idx] = self.forward(X[idx])
         return predictions
+    
+    def scale(self, features):
+        self.scale_values[:,0] = np.minimum(self.scale_values[:,0], features)
+        self.scale_values[:,1] = np.maximum(self.scale_values[:,1], features)
 
-    def add_cell(self):
-        seed = self.random_seed * 1000 + self._cell_counter * 97
+        return (features - self.scale_values[:,0]) / (self.scale_values[:,1] - self.scale_values[:,0])
+
+    def add_cell(self, start_gate_vector=None):
+        print("Num cells", self._cell_counter)
+        seed = self.get_seed()
         self._cell_counter += 1
         self.cells.append(WeightedForest.Cell(
             self.num_features, self.num_classes,
             distance_function=self.distance_function,
             learning_decay=self.learning_decay,
-            initializer_low=self.initializer_low,
-            initializer_high=self.initializer_high,
-            random_seed=seed
+            random_seed=seed,
+            start_gate_vector=start_gate_vector,
+            gate_boundery=self.gate_boundery
         ))
+
+    def get_seed(self):
+        self.random_seed = (self.random_seed * 1000 + self._cell_counter * 97) % 9999
+        return self.random_seed
