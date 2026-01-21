@@ -140,7 +140,7 @@ class WeightedForestOnlineTrainer(OnlineTrainer):
 
     def learn(self, prev_state: StateSnapshot, action: str, new_state: StateSnapshot) -> None:
         """Learn from experience using backward pass."""
-        right_decision = calculate_bool_reward(prev_state, action, new_state)
+        right_decision = calculate_bool_reward(prev_state, new_state) #, action)
         # print("right decision!", right_decision)
         self.model.backward(right_decision)
 

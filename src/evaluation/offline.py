@@ -56,8 +56,7 @@ def _train_and_evaluate(
 
     else:
         raise ValueError(f"Unknown model: {model_name}")
-
-    inference_times[model_name].append(end_time - start_time)
+    inference_times[model_name].append((end_time - start_time)/len(X_test))
     return float(accuracy_score(y_test, preds))
 
 
