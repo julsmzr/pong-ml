@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 from collections import deque
 
-from src.training.reward import StateSnapshot, calculate_reward, generate_label_from_reward
+from src.training.reward import StateSnapshot, calculate_reward, calculate_bool_reward, generate_label_from_reward
 from src.data.preparation import min_max_scale_single
 
 
@@ -140,9 +140,7 @@ class WeightedForestOnlineTrainer(OnlineTrainer):
 
     def learn(self, prev_state: StateSnapshot, action: str, new_state: StateSnapshot) -> None:
         """Learn from experience using backward pass."""
-        reward = calculate_reward(prev_state, action, new_state)
-
-        right_decision = reward > 0.0
+        right_decision = calculate_bool_reward(prev_state, new_state) #, action)
         # print("right decision!", right_decision)
         self.model.backward(right_decision)
 
@@ -151,7 +149,7 @@ class WeightedForestOnlineTrainer(OnlineTrainer):
         self._total_predictions += 1
 
         self.metrics['total_updates'] += 1
-        self.metrics['total_reward'] += reward
+        self.metrics['total_reward'] += 1 if right_decision else 0
         self.metrics['num_cells'] = len(self.model.cells)
         if self._total_predictions > 0:
             self.metrics['accuracy'] = self._correct_predictions / self._total_predictions

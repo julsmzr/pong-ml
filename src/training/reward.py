@@ -87,6 +87,26 @@ def calculate_reward(prev_state: StateSnapshot, action: str, new_state: StateSna
 
     return reward
 
+def calculate_bool_reward(prev_state: StateSnapshot, new_state: StateSnapshot, paddle_h: int = 100) -> float:
+    """Calculate reward for state transition using predicted ball target."""
+    new_paddle_center = new_state.paddle_y + paddle_h / 2
+    prev_paddle_center = prev_state.paddle_y + paddle_h / 2
+
+    if new_state.ball_moving_towards:
+        target_y = predict_ball_target_y(new_state.ball_x, new_state.ball_y, new_state.ball_angle)
+    else:
+        target_y = HEIGHT / 2
+        
+    prev_dist_to_target = abs(target_y - prev_paddle_center)
+    new_dist_to_target = abs(target_y - new_paddle_center)
+
+    if new_dist_to_target < 50:
+        return True
+    else:
+        if new_dist_to_target - prev_dist_to_target < 0:
+            return True
+    return False
+
 
 def generate_label_from_reward(paddle_y: float, ball_y: float, reward: float, paddle_h: int = 100) -> str:
     """Convert reward signal to action label for supervised learning."""
