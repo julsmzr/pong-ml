@@ -1,6 +1,6 @@
 # Efficient and Adaptive Pong Control via Gated Cell Ensembles
 
-This project was created during the Machine Learning course at PWR under supervision of Weronika Węgier. The final project report can be found in [docs/project_report.pdf](docs/project_report.pdf).
+This project was created during the Machine Learning course at PWR under supervision of Weronika Węgier. The final project report can be found in [docs/report.pdf](docs/report.pdf).
 
 ## Research Summary
 
